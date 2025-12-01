@@ -7,7 +7,7 @@ from core import logger
 
 
 class LimitlessMarketFinder(ABC):
-    """Base class for finding markets on Polymarket via HTTP GET requests"""
+    """Base class for finding markets on Limitless via HTTP GET requests"""
         
     @abstractmethod
     def get_slug(self) -> str:

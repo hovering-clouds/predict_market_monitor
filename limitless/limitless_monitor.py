@@ -1,7 +1,7 @@
 from typing import Tuple, List
 from core import logger
 from core.utils import PriceInfo, OrderBook
-from .market_finder import LimitlessMarketFinder, _build_limitless_market_finder
+from .limitless_market_finder import LimitlessMarketFinder, _build_limitless_market_finder
 import requests
 
 
