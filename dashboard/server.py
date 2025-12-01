@@ -20,6 +20,7 @@ import json
 from queue import Queue, Empty
 from typing import Dict, Any, Optional
 from importlib import import_module
+from core.logger import logger
 
 from flask import Flask, request, jsonify, send_from_directory, Response, abort
 
@@ -54,7 +55,7 @@ class MonitorTask:
         monitor = None
         mtype = self.cfg.get('type')
         market = self.cfg.get('market')
-        freq = float(self.cfg.get('freq', 5))
+        freq = max(float(self.cfg.get('freq', 5)), 1.0)
 
         # mapping known monitor types to class path
         mapping = {
@@ -69,16 +70,8 @@ class MonitorTask:
                 cls = getattr(mod, clsname)
                 monitor = cls(market="manual", slug=market)
             except Exception as e:
-                print(f"Error initializing monitor {mtype} for market {market}: {e}")
+                logger.error(f"Error initializing monitor {mtype} for market {market}: {e}")
                 monitor = None
-
-        # fallback simulator monitor
-        def fetch_simulated():
-            import random
-            base = random.uniform(0.4, 0.6)
-            bid = {'value': round(base - random.uniform(0, 0.01), 6), 'quantity': round(random.uniform(1, 10), 6)}
-            ask = {'value': round(base + random.uniform(0, 0.01), 6), 'quantity': round(random.uniform(1, 10), 6)}
-            return {'bid': bid, 'ask': ask}
 
         while not self._stop.is_set():
             result = None
@@ -103,7 +96,10 @@ class MonitorTask:
                     result = None
 
             if result is None:
-                result = fetch_simulated()
+                result = {
+                    'bid': {'value': 'N/A', 'quantity': 'N/A'},
+                    'ask': {'value': 'N/A', 'quantity': 'N/A'}
+                }
 
             # push to queue for any active SSE listeners
             try:
@@ -146,7 +142,7 @@ class ArbitrageTask:
                 cls = getattr(mod, clsname)
                 return cls(market="manual", slug=market)
             except Exception as e:
-                print(f"Error initializing monitor {mtype} for market {market}: {e}")
+                logger.error(f"Error initializing monitor {mtype} for market {market}: {e}")
         return None
 
     def _get_orderbook(self, monitor):
@@ -162,65 +158,55 @@ class ArbitrageTask:
                 ob = allb[0] if allb else None
             return ob
         except Exception as e:
-            print(f"Error getting orderbook: {e}")
+            logger.error(f"Error getting orderbook: {e}")
             return None
 
-    def _fetch_simulated_orderbook(self):
-        """Generate simulated orderbook."""
-        import random
-        base = random.uniform(0.4, 0.6)
-        bid = PriceInfo(value=round(base - random.uniform(0, 0.01), 6), quantity=round(random.uniform(1, 10), 6))
-        ask = PriceInfo(value=round(base + random.uniform(0, 0.01), 6), quantity=round(random.uniform(1, 10), 6))
+    def _fetch_placeholder_orderbook(self):
+        """Return placeholder orderbook when data fetch fails."""
+        bid = PriceInfo(value=None, quantity=None)
+        ask = PriceInfo(value=None, quantity=None)
         return OrderBook(bids=[bid], asks=[ask])
 
     def run(self):
         monitor1 = self._build_monitor(self.cfg.get('type1'), self.cfg.get('market1'))
         monitor2 = self._build_monitor(self.cfg.get('type2'), self.cfg.get('market2'))
-        freq = float(self.cfg.get('freq', 5))
+        freq = max(float(self.cfg.get('freq', 5)), 1.0)
         min_spread = float(self.cfg.get('min_spread', 0.01))
 
         while not self._stop.is_set():
             try:
                 # Get orderbooks from both markets
                 ob1 = self._get_orderbook(monitor1)
-                if ob1 is None:
-                    ob1 = self._fetch_simulated_orderbook()
-
                 ob2 = self._get_orderbook(monitor2)
-                if ob2 is None:
-                    ob2 = self._fetch_simulated_orderbook()
-
+                
                 # Extract best bid/ask
-                market1_bid = ob1.bids[0] if ob1.bids else None
-                market1_ask = ob1.asks[0] if ob1.asks else None
-                market2_bid = ob2.bids[0] if ob2.bids else None
-                market2_ask = ob2.asks[0] if ob2.asks else None
+                market1_bid = ob1.bids[0] if ob1 and ob1.bids else None
+                market1_ask = ob1.asks[0] if ob1 and ob1.asks else None
+                market2_bid = ob2.bids[0] if ob2 and ob2.bids else None
+                market2_ask = ob2.asks[0] if ob2 and ob2.asks else None
 
+                result = None
                 # Calculate arbitrage opportunity
-                spread = 0.0
-                quantity = 0.0
-                if market1_ask and market2_bid and market1_ask.value and market2_bid.value:
-                    # Check if market2 bid is better than market1 ask
-                    spread = max(
-                        market2_bid.value - market1_ask.value,
-                        market1_bid.value - market2_ask.value if (market1_bid and market2_ask) else 0
-                    )
-                    
-                    # Use find_arbitrage_opportunity from utils
+                if ob1 and ob2:
                     if hasattr(ob1, 'find_arbitrage_opportunity'):
-                        _, quantity = ob1.find_arbitrage_opportunity(ob2, min_spread)
-                    else:
-                        # Fallback: simple quantity matching
-                        quantity = min(market1_ask.quantity or 0, market2_bid.quantity or 0) if spread >= min_spread else 0.0
-
-                result = {
-                    'market1_bid': {'value': market1_bid.value, 'quantity': market1_bid.quantity} if market1_bid else None,
-                    'market1_ask': {'value': market1_ask.value, 'quantity': market1_ask.quantity} if market1_ask else None,
-                    'market2_bid': {'value': market2_bid.value, 'quantity': market2_bid.quantity} if market2_bid else None,
-                    'market2_ask': {'value': market2_ask.value, 'quantity': market2_ask.quantity} if market2_ask else None,
-                    'arbitrage_spread': round(spread, 6),
-                    'arbitrage_quantity': round(quantity, 6),
-                }
+                        arb_spread, quantity = ob1.find_arbitrage_opportunity(ob2, min_spread)
+                        result = {
+                            'market1_bid': {'value': market1_bid.value, 'quantity': market1_bid.quantity} if market1_bid else 'N/A',
+                            'market1_ask': {'value': market1_ask.value, 'quantity': market1_ask.quantity} if market1_ask else 'N/A',
+                            'market2_bid': {'value': market2_bid.value, 'quantity': market2_bid.quantity} if market2_bid else 'N/A',
+                            'market2_ask': {'value': market2_ask.value, 'quantity': market2_ask.quantity} if market2_ask else 'N/A',
+                            'arbitrage_spread': round(arb_spread, 6),
+                            'arbitrage_quantity': round(quantity, 6),
+                        }
+                if result is None:
+                    result = {
+                        'market1_bid': {'value': market1_bid.value, 'quantity': market1_bid.quantity} if market1_bid else 'N/A',
+                        'market1_ask': {'value': market1_ask.value, 'quantity': market1_ask.quantity} if market1_ask else 'N/A',
+                        'market2_bid': {'value': market2_bid.value, 'quantity': market2_bid.quantity} if market2_bid else 'N/A',
+                        'market2_ask': {'value': market2_ask.value, 'quantity': market2_ask.quantity} if market2_ask else 'N/A',
+                        'arbitrage_spread': 'N/A',
+                        'arbitrage_quantity': 'N/A',
+                    }
 
                 # Push to queue
                 try:
@@ -229,7 +215,7 @@ class ArbitrageTask:
                     pass
 
             except Exception as e:
-                print(f"Error in arbitrage task: {e}")
+                logger.error(f"Error in arbitrage task: {e}")
 
             time.sleep(freq)
 
@@ -387,6 +373,6 @@ def create_app(manager: MonitorManager | None = None) -> Flask:
 def run_server(host='0.0.0.0', port=5000):
     mgr = MonitorManager()
     app = create_app(mgr)
-    print(f"Starting dashboard on http://{host}:{port}/dashboard")
+    logger.info(f"Starting dashboard on http://{host}:{port}/dashboard")
     app.run(host=host, port=port, threaded=True)
 

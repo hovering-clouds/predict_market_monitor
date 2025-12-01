@@ -18,7 +18,7 @@ _PACKAGE_NAME = "arbitrage"
 
 # Directory for logs (placed next to this file)
 _BASE_DIR = os.path.dirname(__file__)
-_LOG_DIR = os.path.join(_BASE_DIR, "logs")
+_LOG_DIR = os.path.join(_BASE_DIR, "../logs")
 os.makedirs(_LOG_DIR, exist_ok=True)
 
 _LOG_FILE = os.path.join(_LOG_DIR, "arbitrage.log")
