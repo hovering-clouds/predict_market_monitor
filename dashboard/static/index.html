@@ -43,9 +43,6 @@
             <label>Market / 标识
               <input id="arb-market-1" placeholder="请填写市场slug标识符" />
             </label>
-            <label>频率 (秒)
-              <input id="arb-freq-1" type="number" min="1" value="5" />
-            </label>
           </div>
 
           <div class="arbitrage-pair">
@@ -59,13 +56,13 @@
             <label>Market / 标识
               <input id="arb-market-2" placeholder="请填写市场slug标识符" />
             </label>
-            <label>频率 (秒)
-              <input id="arb-freq-2" type="number" min="1" value="5" />
-            </label>
           </div>
 
           <div class="arbitrage-pair">
             <h3>套利参数</h3>
+            <label>频率 (秒)
+              <input id="arb-freq" type="number" min="1" value="5" />
+            </label>
             <label>最小套利价差 (min_spread)
               <input id="arb-min-spread" type="number" step="0.0001" min="0" value="0.01" />
             </label>

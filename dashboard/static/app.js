@@ -131,20 +131,20 @@ arbitrageForm.onsubmit = async (ev) => {
   ev.preventDefault();
   const type1 = document.getElementById('arb-type-1').value;
   const market1 = document.getElementById('arb-market-1').value;
-  const freq1 = Number(document.getElementById('arb-freq-1').value) || 5;
   
   const type2 = document.getElementById('arb-type-2').value;
   const market2 = document.getElementById('arb-market-2').value;
-  const freq2 = Number(document.getElementById('arb-freq-2').value) || 5;
   
+  const freq = Number(document.getElementById('arb-freq').value) || 5;
   const min_spread = Number(document.getElementById('arb-min-spread').value) || 0.01;
 
   const res = await fetch('/api/arbitrage', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({
-      type1, market1, freq1,
-      type2, market2, freq2,
+      type1, market1,
+      type2, market2,
+      freq,
       min_spread
     })
   });

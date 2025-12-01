@@ -323,19 +323,17 @@ def create_app(manager: MonitorManager | None = None) -> Flask:
     def api_arbitrage():
         """Create an arbitrage monitoring task."""
         data = request.get_json() or {}
-        required_fields = ['type1', 'market1', 'type2', 'market2', 'min_spread']
+        required_fields = ['type1', 'market1', 'type2', 'market2', 'freq', 'min_spread']
         if not all(field in data for field in required_fields):
             return jsonify({'error': 'missing fields: ' + ', '.join(required_fields)}), 400
         
         cfg = {
             'type1': data.get('type1'),
             'market1': data.get('market1'),
-            'freq1': data.get('freq1', 5),
             'type2': data.get('type2'),
             'market2': data.get('market2'),
-            'freq2': data.get('freq2', 5),
-            'min_spread': float(data.get('min_spread', 0.01)),
-            'freq': max(float(data.get('freq1', 5)), float(data.get('freq2', 5)))
+            'freq': float(data.get('freq', 5)),
+            'min_spread': float(data.get('min_spread', 0.01))
         }
         created = manager.create_arbitrage(cfg)
         return jsonify(created), 201
