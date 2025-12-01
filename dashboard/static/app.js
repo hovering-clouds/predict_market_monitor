@@ -14,13 +14,14 @@ function addMonitorCard(m) {
   card.className = m.arbitrage_pair ? 'card arbitrage-card' : 'card';
   card.id = `mon-${m.id}`;
   
-  let contentHtml = `
-    <div><strong>${m.type}</strong> — ${m.market} (<span class="freq">${m.freq}s</span>)</div>
-    <div>状态: <span class="status">${m.status}</span></div>
-  `;
+  let contentHtml;
   
   // 套利对展示
   if (m.arbitrage_pair) {
+    contentHtml = `
+      <div><strong>${m.type1}</strong> <strong>${m.type2}</strong> (<span class="freq">${m.freq}s</span>)</div>
+      <div>状态: <span class="status">${m.status}</span></div>
+    `;
     contentHtml += `
       <div style="margin-top:8px;padding-top:8px;border-top:1px solid #ddd">
         <div><strong>市场1:</strong> ${m.market1} (${m.type1})</div>
@@ -33,6 +34,10 @@ function addMonitorCard(m) {
       <div class="arb-spread" style="display:none" id="arb-result-${m.id}"></div>
     `;
   } else {
+    contentHtml = `
+      <div><strong>${m.type}</strong> — ${m.market} (<span class="freq">${m.freq}s</span>)</div>
+      <div>状态: <span class="status">${m.status}</span></div>
+    `;
     contentHtml += `<div class="ob"><em>等待数据...</em></div>`;
   }
   
@@ -73,10 +78,10 @@ function subscribeToMonitor(id, card, isArbitrage) {
       if (isArbitrage) {
         // 套利对数据显示
         obDiv.innerHTML = `
-          <div><strong>市场1 Bid:</strong> ${d.market1_bid ? d.market1_bid.value : '-'} @ ${d.market1_bid ? d.market1_bid.quantity : '-'}</div>
           <div><strong>市场1 Ask:</strong> ${d.market1_ask ? d.market1_ask.value : '-'} @ ${d.market1_ask ? d.market1_ask.quantity : '-'}</div>
-          <div style="margin-top:6px"><strong>市场2 Bid:</strong> ${d.market2_bid ? d.market2_bid.value : '-'} @ ${d.market2_bid ? d.market2_bid.quantity : '-'}</div>
-          <div><strong>市场2 Ask:</strong> ${d.market2_ask ? d.market2_ask.value : '-'} @ ${d.market2_ask ? d.market2_ask.quantity : '-'}</div>
+          <div><strong>市场1 Bid:</strong> ${d.market1_bid ? d.market1_bid.value : '-'} @ ${d.market1_bid ? d.market1_bid.quantity : '-'}</div>
+          <div style="margin-top:6px"><strong>市场2 Ask:</strong> ${d.market2_ask ? d.market2_ask.value : '-'} @ ${d.market2_ask ? d.market2_ask.quantity : '-'}</div>
+          <div><strong>市场2 Bid:</strong> ${d.market2_bid ? d.market2_bid.value : '-'} @ ${d.market2_bid ? d.market2_bid.quantity : '-'}</div>
         `;
         
         if (d.arbitrage_spread !== undefined) {
@@ -91,8 +96,8 @@ function subscribeToMonitor(id, card, isArbitrage) {
       } else {
         // 单个监控数据显示
         obDiv.innerHTML = `
-          <div>Bid: ${d.bid ? d.bid.value : '-'} @ ${d.bid ? d.bid.quantity : '-'} </div>
           <div>Ask: ${d.ask ? d.ask.value : '-'} @ ${d.ask ? d.ask.quantity : '-'} </div>
+          <div>Bid: ${d.bid ? d.bid.value : '-'} @ ${d.bid ? d.bid.quantity : '-'} </div>
         `;
       }
     } catch (err) {

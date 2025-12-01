@@ -97,8 +97,8 @@ class MonitorTask:
 
             if result is None:
                 result = {
-                    'bid': {'value': 'N/A', 'quantity': 'N/A'},
-                    'ask': {'value': 'N/A', 'quantity': 'N/A'}
+                    'bid': {'value': '-', 'quantity': '-'},
+                    'ask': {'value': '-', 'quantity': '-'}
                 }
 
             # push to queue for any active SSE listeners
@@ -191,21 +191,21 @@ class ArbitrageTask:
                     if hasattr(ob1, 'find_arbitrage_opportunity'):
                         arb_spread, quantity = ob1.find_arbitrage_opportunity(ob2, min_spread)
                         result = {
-                            'market1_bid': {'value': market1_bid.value, 'quantity': market1_bid.quantity} if market1_bid else 'N/A',
-                            'market1_ask': {'value': market1_ask.value, 'quantity': market1_ask.quantity} if market1_ask else 'N/A',
-                            'market2_bid': {'value': market2_bid.value, 'quantity': market2_bid.quantity} if market2_bid else 'N/A',
-                            'market2_ask': {'value': market2_ask.value, 'quantity': market2_ask.quantity} if market2_ask else 'N/A',
+                            'market1_bid': {'value': market1_bid.value, 'quantity': market1_bid.quantity} if market1_bid else '-',
+                            'market1_ask': {'value': market1_ask.value, 'quantity': market1_ask.quantity} if market1_ask else '-',
+                            'market2_bid': {'value': market2_bid.value, 'quantity': market2_bid.quantity} if market2_bid else '-',
+                            'market2_ask': {'value': market2_ask.value, 'quantity': market2_ask.quantity} if market2_ask else '-',
                             'arbitrage_spread': round(arb_spread, 6),
                             'arbitrage_quantity': round(quantity, 6),
                         }
                 if result is None:
                     result = {
-                        'market1_bid': {'value': market1_bid.value, 'quantity': market1_bid.quantity} if market1_bid else 'N/A',
-                        'market1_ask': {'value': market1_ask.value, 'quantity': market1_ask.quantity} if market1_ask else 'N/A',
-                        'market2_bid': {'value': market2_bid.value, 'quantity': market2_bid.quantity} if market2_bid else 'N/A',
-                        'market2_ask': {'value': market2_ask.value, 'quantity': market2_ask.quantity} if market2_ask else 'N/A',
-                        'arbitrage_spread': 'N/A',
-                        'arbitrage_quantity': 'N/A',
+                        'market1_bid': {'value': market1_bid.value, 'quantity': market1_bid.quantity} if market1_bid else '-',
+                        'market1_ask': {'value': market1_ask.value, 'quantity': market1_ask.quantity} if market1_ask else '-',
+                        'market2_bid': {'value': market2_bid.value, 'quantity': market2_bid.quantity} if market2_bid else '-',
+                        'market2_ask': {'value': market2_ask.value, 'quantity': market2_ask.quantity} if market2_ask else '-',
+                        'arbitrage_spread': '-',
+                        'arbitrage_quantity': '-',
                     }
 
                 # Push to queue
