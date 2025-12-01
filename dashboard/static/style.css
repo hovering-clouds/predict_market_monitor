@@ -1,0 +1,15 @@
+body{font-family: system-ui, -apple-system, Roboto, "Helvetica Neue", Arial; background:#f6f8fa; color:#111}
+.container{max-width:900px;margin:24px auto;padding:12px}
+.panel{background:#fff;border:1px solid #e1e4e8;padding:12px;margin-bottom:12px;border-radius:6px}
+.panel h2{margin-top:0}
+.panel h3{margin-top:12px;margin-bottom:8px;font-size:14px;color:#555}
+form label{display:block;margin:8px 0}
+input,select{padding:6px;margin-left:8px;border:1px solid #ddd;border-radius:4px}
+.arbitrage-pair{border:1px solid #e1e4e8;padding:10px;margin:10px 0;border-radius:4px;background:#fafbfc}
+.card{border:1px solid #ddd;padding:8px;margin:8px 0;border-radius:6px;background:#fff}
+.card .actions{margin-top:8px}
+.card .ob{font-family:monospace;margin-top:8px;font-size:12px}
+.card.arbitrage-card{border-color:#28a745;background:#f8fff9}
+.card.arbitrage-card .ob{color:#155724}
+.arb-spread{color:#28a745;font-weight:bold;margin-top:8px}
+.arb-spread em{color:#dc3545;font-weight:normal}
