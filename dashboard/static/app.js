@@ -19,7 +19,7 @@ function addMonitorCard(m) {
   // 套利对展示
   if (m.arbitrage_pair) {
     contentHtml = `
-      <div><strong>${m.type1}</strong> <strong>${m.type2}</strong> (<span class="freq">${m.freq}s</span>)</div>
+      <div><strong>${m.type1}</strong> - <strong>${m.type2}</strong> (<span class="freq">${m.freq}s</span>)</div>
       <div>状态: <span class="status">${m.status}</span></div>
     `;
     contentHtml += `
