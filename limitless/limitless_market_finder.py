@@ -37,7 +37,7 @@ all_limitless_markets = {
     "manual": ManualLimitlessMarketFinder
 }
 
-def _build_limitless_market_finder(market: str, **kwargs) -> LimitlessMarketFinder:
+def _build_limitless_market_finder(market_type: str, **kwargs) -> LimitlessMarketFinder:
     """
         Factory function to create LimitlessMarketFinder instances.
         Args:
@@ -49,8 +49,8 @@ def _build_limitless_market_finder(market: str, **kwargs) -> LimitlessMarketFind
             ValueError: If the market type is not supported.
             TypeError: If the provided arguments do not match the constructor.
     """
-    if market in all_limitless_markets:
-        return all_limitless_markets[market](**kwargs)
+    if market_type in all_limitless_markets:
+        return all_limitless_markets[market_type](**kwargs)
     else:
-        raise ValueError(f"LimitlessMarket {market} not supported")
+        raise ValueError(f"LimitlessMarket {market_type} not supported")
     

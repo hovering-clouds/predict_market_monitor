@@ -92,7 +92,7 @@ all_poly_markets = {
     "manual": ManualPolyMarketFinder
 }
 
-def _build_poly_market_finder(market: str, **kwargs) -> PolyMarketFinder:
+def _build_poly_market_finder(market_type: str, **kwargs) -> PolyMarketFinder:
     """
         Factory function to create PolyMarketFinder instances.
         Args:
@@ -104,8 +104,8 @@ def _build_poly_market_finder(market: str, **kwargs) -> PolyMarketFinder:
             ValueError: If the market type is not supported.
             TypeError: If the provided arguments do not match the constructor.
     """
-    if market in all_poly_markets:
-        return all_poly_markets[market](**kwargs)
+    if market_type in all_poly_markets:
+        return all_poly_markets[market_type](**kwargs)
     else:
-        raise ValueError(f"PolyMarket {market} not supported")
+        raise ValueError(f"PolyMarket {market_type} not supported")
     

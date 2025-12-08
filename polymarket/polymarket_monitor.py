@@ -7,16 +7,16 @@ from .polymarket_market_finder import PolyMarketFinder, _build_poly_market_finde
 
 class PolymarketMonitor:
 
-    def __init__(self, market: str, **kwargs):
+    def __init__(self, market_type: str, **kwargs):
         self.market = None
         self.token_ids: List[str] = []
         self.client = ClobClient("https://clob.polymarket.com")
         
         try:
-            self.market = _build_poly_market_finder(market=market, **kwargs)
+            self.market = _build_poly_market_finder(market_type=market_type, **kwargs)
             self.token_ids = self.market.get_token_ids()
         except Exception as e:
-            logger.error(f"Error initializing market finder and tokens for {market}: {e}")
+            logger.error(f"Error initializing market finder and tokens for {market_type}: {e}")
    
     def get_all_orderbooks(self) -> List[OrderBook]:
         if not self.token_ids:

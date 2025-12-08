@@ -68,7 +68,7 @@ class MonitorTask:
             try:
                 mod = import_module(modname)
                 cls = getattr(mod, clsname)
-                monitor = cls(market="manual", slug=market)
+                monitor = cls(market_type="manual", slug=market)
             except Exception as e:
                 logger.error(f"Error initializing monitor {mtype} for market {market}: {e}")
                 monitor = None
@@ -140,7 +140,7 @@ class ArbitrageTask:
             try:
                 mod = import_module(modname)
                 cls = getattr(mod, clsname)
-                return cls(market="manual", slug=market)
+                return cls(market_type="manual", slug=market)
             except Exception as e:
                 logger.error(f"Error initializing monitor {mtype} for market {market}: {e}")
         return None

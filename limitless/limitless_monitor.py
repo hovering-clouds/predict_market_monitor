@@ -9,14 +9,14 @@ class LimitlessMonitor:
 
     BASE_URL = "https://api.limitless.exchange"
 
-    def __init__(self, market: str, **kwargs):
+    def __init__(self, market_type: str, **kwargs):
         self.market = None
         self.session = requests.Session()
         
         try:
-            self.market = _build_limitless_market_finder(market=market, **kwargs)
+            self.market = _build_limitless_market_finder(market_type=market_type, **kwargs)
         except Exception as e:
-            logger.error(f"Error initializing market finder and tokens for {market}: {e}")
+            logger.error(f"Error initializing market finder and tokens for {market_type}: {e}")
 
         
     def get_yes_orderbook(self) -> OrderBook | None:
