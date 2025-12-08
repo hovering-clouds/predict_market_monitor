@@ -1,0 +1,14 @@
+# Configuration file for Arbitrage Trading System
+# API tokens and other configuration settings
+
+# Kalshi API Configuration
+kalshi:
+  api_token: ""  # Add your Kalshi API token here
+
+# Polymarket API Configuration
+polymarket:
+  api_token: ""  # Add your Polymarket API token here
+
+# Limitless API Configuration
+limitless:
+  api_token: ""  # Add your Limitless API token here
