@@ -4,6 +4,10 @@ from dataclasses import dataclass, asdict
 
 @dataclass
 class PriceInfo:
+    """
+    value (float): value is the price between 0 and 1 (in $) \n
+    quantity (float): in contract units, on unit stands for $value
+    """
     value: float 
     quantity: float 
 
@@ -17,6 +21,7 @@ class PriceInfo:
 
 class OrderBook:
     def __init__(self, bids: List[PriceInfo], asks: List[PriceInfo]):
+        """Make sure bids and asks are sorted so that best price is first"""
         self.bids = bids  
         self.asks = asks
 

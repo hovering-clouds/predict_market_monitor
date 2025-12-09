@@ -61,6 +61,7 @@ class MonitorTask:
         mapping = {
             'limitless': ('limitless.limitless_monitor', 'LimitlessMonitor'),
             'polymarket': ('polymarket.polymarket_monitor', 'PolymarketMonitor'),
+            'kalshi': ('kalshi.kalshi_monitor', 'KalshiMonitor'),
         }
 
         if mtype in mapping:
@@ -133,6 +134,7 @@ class ArbitrageTask:
         mapping = {
             'limitless': ('limitless.limitless_monitor', 'LimitlessMonitor'),
             'polymarket': ('polymarket.polymarket_monitor', 'PolymarketMonitor'),
+            'kalshi': ('kalshi.kalshi_monitor', 'KalshiMonitor'),
         }
 
         if mtype in mapping:

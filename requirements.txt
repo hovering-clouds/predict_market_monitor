@@ -1,3 +1,5 @@
 py_clob_client==0.28.0
 Flask==3.1.2
 pytz==2025.2
+kalshi_python_sync==3.0.0
+PyYAML==6.0.3
