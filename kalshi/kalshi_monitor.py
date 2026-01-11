@@ -88,3 +88,70 @@ class KalshiMonitor:
             return None
         
         return OrderBook(bids=bids, asks=asks)
+    
+    def place_limit_order_fak(self, price: float, size: float, side: str, yes_or_no: bool) -> Tuple[float, float, float] | None:
+        """
+        参数：
+         - price: 下单价格，0-1浮点数
+         - size: 下单数量，需要>=1且为整数
+         - side: "BUY" or "SELL"
+         - yes_or_no: True表示yes，False表示no
+
+        返回值: 
+         - (成交数量, 成交金额, 交易费) 或 None表示下单失败
+        """
+        if not self.market:
+            return None
+
+        try:
+            response = self.client._orders_api.create_order(
+                ticker=self.market.get_slug(),
+                side="yes" if yes_or_no else "no",
+                action=side.lower(),
+                count=int(size),
+                type="limit",
+                yes_price_dollars=f"{price:.4f}" if yes_or_no else None,
+                no_price_dollars=f"{price:.4f}" if not yes_or_no else None,
+            )
+        except Exception as e:
+            logger.error(f"Error placing order for market {self.market.get_slug()}: {e}")
+            self.cancel_all_open_orders()
+            return None
+        
+        order_id = response.order.order_id
+        remaining_count = response.order.remaining_count
+        if remaining_count > 0:
+            logger.info(f"Order {order_id} not fully filled, canceling remaining {remaining_count}...")
+            try:
+                self.client._orders_api.cancel_order(order_id)
+            except Exception as e:
+                logger.error(f"Error canceling order {order_id}: {e}")
+                self.cancel_all_open_orders()
+
+        try:
+            response3 = self.client._orders_api.get_order(order_id)
+            fill_count = response3.order.fill_count
+            taker_amount = response3.order.taker_fill_cost / 100  # 转换为美元
+            maker_amount = response3.order.maker_fill_cost / 100  # 转换为美元
+            taker_fee = response3.order.taker_fees / 100  # 转换为美元
+            maker_fee = response3.order.maker_fees / 100  # 转换为美元
+            return fill_count, taker_amount + maker_amount, taker_fee + maker_fee
+
+        except Exception as e:
+            logger.error(f"Error fetching order {order_id} details: {e}")
+            self.cancel_all_open_orders()
+            return None
+        
+    def cancel_all_open_orders(self):
+        """取消所有未完成订单"""
+        try:
+            response = self.client._orders_api.get_orders(status="open")
+            for order in response.orders:
+                try:
+                    self.client._orders_api.cancel_order(order.order_id)
+                    logger.info(f"Canceled order {order.order_id} successfully.")
+                except Exception as e:
+                    logger.error(f"Error canceling order {order.order_id}: {e}")
+        except Exception as e:
+            logger.error(f"Error fetching open orders: {e}")
+
