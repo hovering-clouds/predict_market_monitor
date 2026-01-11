@@ -119,6 +119,8 @@ class ArbitrageTask:
         self.queue = queue
         self._stop = threading.Event()
         self.thread: Optional[threading.Thread] = None
+        self.max_arb_ratio = float(cfg.get('max_arb_ratio', 1.0))  # 默认为100%
+        self.max_arb_quantity = float(cfg.get('max_arb_quantity', float('inf')))  # 默认为无限制
 
     def start(self):
         self.thread = threading.Thread(target=self.run, daemon=True)
@@ -192,6 +194,9 @@ class ArbitrageTask:
                 if ob1 and ob2:
                     if hasattr(ob1, 'find_arbitrage_opportunity'):
                         arb_spread, quantity = ob1.find_arbitrage_opportunity(ob2, min_spread)
+                        # 应用最大套利比例和数量限制
+                        limited_quantity = min(quantity * self.max_arb_ratio, self.max_arb_quantity)
+                        
                         result = {
                             'market1_bid': {'value': market1_bid.value, 'quantity': market1_bid.quantity} if market1_bid else '-',
                             'market1_ask': {'value': market1_ask.value, 'quantity': market1_ask.quantity} if market1_ask else '-',
@@ -253,6 +258,8 @@ class MonitorManager:
             'type1': cfg.get('type1'),
             'market1': cfg.get('market1'),
             'type2': cfg.get('type2'),
+            'max_arb_ratio': cfg.get('max_arb_ratio', 1.0),
+            'max_arb_quantity': cfg.get('max_arb_quantity', float('inf')),
             'market2': cfg.get('market2'),
             'min_spread': cfg.get('min_spread'),
             'freq': cfg.get('freq', 5),
@@ -268,6 +275,8 @@ class MonitorManager:
                         'id': mid,
                         'arbitrage_pair': True,
                         'type1': t.cfg.get('type1'),
+                        'max_arb_ratio': t.cfg.get('max_arb_ratio', 1.0),
+                        'max_arb_quantity': t.cfg.get('max_arb_quantity', float('inf')),
                         'market1': t.cfg.get('market1'),
                         'type2': t.cfg.get('type2'),
                         'market2': t.cfg.get('market2'),
@@ -334,6 +343,8 @@ def create_app(manager: MonitorManager | None = None) -> Flask:
             'market1': data.get('market1'),
             'type2': data.get('type2'),
             'market2': data.get('market2'),
+            'max_arb_ratio': float(data.get('max_arb_ratio', 1.0)),
+            'max_arb_quantity': float(data.get('max_arb_quantity', float('inf'))) if data.get('max_arb_quantity') else float('inf'),
             'freq': float(data.get('freq', 5)),
             'min_spread': float(data.get('min_spread', 0.01))
         }
