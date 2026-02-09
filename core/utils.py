@@ -6,7 +6,7 @@ from dataclasses import dataclass, asdict
 class PriceInfo:
     """
     value (float): value is the price between 0 and 1 (in $) \n
-    quantity (float): in contract units, on unit stands for $value
+    quantity (float): in contract units, one unit stands for $value
     """
     value: float 
     quantity: float 
