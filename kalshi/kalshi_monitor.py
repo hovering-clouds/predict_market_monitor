@@ -4,10 +4,11 @@ from core import logger, config
 from core.utils import PriceInfo, OrderBook
 from pydantic import validate_call, StrictStr
 from .kalshi_market_finder import KalshiMarketFinder, _build_kalshi_market_finder
+from monitor.base_monitor import BaseMonitor
 import json
 import types
 
-class KalshiMonitor:
+class KalshiMonitor(BaseMonitor):
 
     def __init__(self, market_type: str, **kwargs):
         # Configure the client
@@ -17,12 +18,13 @@ class KalshiMonitor:
         if config.get('kalshi.api_key_id') and config.get('kalshi.private_key'):
             self.config.api_key_id = config.get('kalshi.api_key_id')
             self.config.private_key_pem = config.get('kalshi.private_key')
+        self.client = None
         try:
             self.client = KalshiClient(self.config)
             self.patch_client_method()
             self.market = _build_kalshi_market_finder(market_type=market_type, **kwargs)
         except Exception as e:
-            logger.error(f"Error initializing market finder and tokens for {market_type}: {e}")
+            logger.error(f"Error initializing Kalshi monitor for {market_type}: {e}")
    
     def patch_client_method(self):
         """修复self.client中get_market_orderbook方法中错误的数据类型问题"""

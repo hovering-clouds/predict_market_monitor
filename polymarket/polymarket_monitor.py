@@ -4,8 +4,9 @@ from typing import Tuple, List
 from core import logger, config
 from core.utils import PriceInfo, OrderBook
 from .polymarket_market_finder import PolyMarketFinder, _build_poly_market_finder
+from monitor.base_monitor import BaseMonitor
 
-class PolymarketMonitor:
+class PolymarketMonitor(BaseMonitor):
 
     def __init__(self, market_type: str, **kwargs):
         self.market = None
@@ -27,7 +28,7 @@ class PolymarketMonitor:
             self.market = _build_poly_market_finder(market_type=market_type, **kwargs)
             self.token_ids = self.market.get_token_ids()
         except Exception as e:
-            logger.error(f"Error initializing market finder and tokens for {market_type}: {e}")
+            logger.error(f"Error initializing Polymarket monitor for {market_type}: {e}")
    
     def get_all_orderbooks(self) -> List[OrderBook]:
         if not self.token_ids:

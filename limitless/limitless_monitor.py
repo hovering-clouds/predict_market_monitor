@@ -2,10 +2,11 @@ from typing import Tuple, List
 from core import logger
 from core.utils import PriceInfo, OrderBook
 from .limitless_market_finder import LimitlessMarketFinder, _build_limitless_market_finder
+from monitor.base_monitor import BaseMonitor
 import requests
 
 
-class LimitlessMonitor:
+class LimitlessMonitor(BaseMonitor):
 
     BASE_URL = "https://api.limitless.exchange"
 
@@ -16,7 +17,7 @@ class LimitlessMonitor:
         try:
             self.market = _build_limitless_market_finder(market_type=market_type, **kwargs)
         except Exception as e:
-            logger.error(f"Error initializing market finder and tokens for {market_type}: {e}")
+            logger.error(f"Error initializing Limitless monitor for {market_type}: {e}")
 
         
     def get_yes_orderbook(self) -> OrderBook | None:
