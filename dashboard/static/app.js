@@ -67,6 +67,16 @@ function removeMonitorCard(id) {
   if (el) el.remove();
 }
 
+function asNumber(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function formatFixed(v, digits = 6, fallback = '-') {
+  const n = asNumber(v);
+  return n === null ? fallback : n.toFixed(digits);
+}
+
 function subscribeToMonitor(id, card, isArbitrage) {
   const evt = new EventSource(`/stream/${id}`);
   const obDiv = card.querySelector('.ob');
@@ -79,20 +89,39 @@ function subscribeToMonitor(id, card, isArbitrage) {
       statusSpan.textContent = '运行中';
       
       if (isArbitrage) {
+        const market1Ask = d.market1_ask && typeof d.market1_ask === 'object' ? d.market1_ask : null;
+        const market1Bid = d.market1_bid && typeof d.market1_bid === 'object' ? d.market1_bid : null;
+        const market2Ask = d.market2_ask && typeof d.market2_ask === 'object' ? d.market2_ask : null;
+        const market2Bid = d.market2_bid && typeof d.market2_bid === 'object' ? d.market2_bid : null;
+
         // 套利对数据显示
         obDiv.innerHTML = `
-          <div><strong>市场1 Ask:</strong> ${d.market1_ask ? d.market1_ask.value : '-'} @ ${d.market1_ask ? d.market1_ask.quantity : '-'}</div>
-          <div><strong>市场1 Bid:</strong> ${d.market1_bid ? d.market1_bid.value : '-'} @ ${d.market1_bid ? d.market1_bid.quantity : '-'}</div>
-          <div style="margin-top:6px"><strong>市场2 Ask:</strong> ${d.market2_ask ? d.market2_ask.value : '-'} @ ${d.market2_ask ? d.market2_ask.quantity : '-'}</div>
-          <div><strong>市场2 Bid:</strong> ${d.market2_bid ? d.market2_bid.value : '-'} @ ${d.market2_bid ? d.market2_bid.quantity : '-'}</div>
+          <div><strong>市场1 Ask:</strong> ${market1Ask ? market1Ask.value : '-'} @ ${market1Ask ? market1Ask.quantity : '-'}</div>
+          <div><strong>市场1 Bid:</strong> ${market1Bid ? market1Bid.value : '-'} @ ${market1Bid ? market1Bid.quantity : '-'}</div>
+          <div style="margin-top:6px"><strong>市场2 Ask:</strong> ${market2Ask ? market2Ask.value : '-'} @ ${market2Ask ? market2Ask.quantity : '-'}</div>
+          <div><strong>市场2 Bid:</strong> ${market2Bid ? market2Bid.value : '-'} @ ${market2Bid ? market2Bid.quantity : '-'}</div>
         `;
         
         if (d.arbitrage_spread !== undefined) {
-          const spreadDisplay = d.arbitrage_spread > 0 ? 
-            `<span style="color:#28a745">可套利价差: ${d.arbitrage_spread.toFixed(6)}</span>` :
-            `<span style="color:#dc3545">无套利机会 (价差: ${d.arbitrage_spread.toFixed(6)})</span>`;
+          const spread = asNumber(d.arbitrage_spread);
+          const spreadDisplay = spread === null ?
+            `<span style="color:#6c757d">可套利价差: -</span>` :
+            (spread > 0 ?
+              `<span style="color:#28a745">可套利价差: ${spread.toFixed(6)}</span>` :
+              `<span style="color:#dc3545">无套利机会 (价差: ${spread.toFixed(6)})</span>`);
+
+          const quantityText = formatFixed(d.arbitrage_quantity, 6, '0.000000');
+          const cumulativeProfitText = formatFixed(d.cumulative_profit, 6, '0.000000');
+          const cumulativeExposureText = formatFixed(d.cumulative_risk_exposure, 6, '0.000000');
+          const cumulativeFeeText = formatFixed(d.cumulative_fee, 6, '0.000000');
+
           arbResultDiv.innerHTML = `
-            ${spreadDisplay} | <span>可套利数量: ${d.arbitrage_quantity ? d.arbitrage_quantity.toFixed(6) : '0'}</span>
+            <div>${spreadDisplay} | <span>可套利数量: ${quantityText}</span></div>
+            <div style="margin-top:6px">
+              <span>累计获利: ${cumulativeProfitText}</span>
+              <span> | 累计敞口: ${cumulativeExposureText}</span>
+              <span> | 累计交易费: ${cumulativeFeeText}</span>
+            </div>
           `;
           arbResultDiv.style.display = 'block';
         }

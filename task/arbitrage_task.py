@@ -74,6 +74,9 @@ class ArbitrageTask:
         self.max_arb_quantity = float(cfg.get('max_arb_quantity', float('inf')))  # 默认为无限制
         self.max_arb_cnt = int(cfg.get('max_arb_cnt', 0))  # 默认为不限制套利次数
         self.arb_cnt = 0 # 已执行的套利次数
+        self.cumulative_profit = 0.0
+        self.cumulative_risk_exposure = 0.0
+        self.cumulative_fee = 0.0
 
     def start(self):
         self.thread = threading.Thread(target=self.run, daemon=True)
@@ -87,6 +90,27 @@ class ArbitrageTask:
     def _build_monitor(self, mtype: str, market: str):
         """Build a monitor instance using builder functions."""
         return build_monitor(monitor_type=mtype, market_type="manual", slug=market)
+
+    def _update_trade_stats(self, qty1: float, vlm1: float, fee1: float, qty2: float, vlm2: float, fee2: float):
+        """Accumulate fee/profit/exposure based on realized two-leg execution."""
+        qty1 = float(qty1 or 0.0)
+        qty2 = float(qty2 or 0.0)
+        vlm1 = float(vlm1 or 0.0)
+        vlm2 = float(vlm2 or 0.0)
+        fee1 = float(fee1 or 0.0)
+        fee2 = float(fee2 or 0.0)
+
+        self.cumulative_fee += fee1 + fee2
+
+        if qty1 > 0 and qty2 > 0 and abs(qty1 - qty2) <= 1e-9:
+            # Fully hedged pair: payoff is qty * $1 at settlement.
+            self.cumulative_profit += qty1 * 1.0 - vlm1 - vlm2
+        else:
+            # Any imbalance leaves one-sided position exposure.
+            if qty1 > qty2:
+                self.cumulative_risk_exposure += (qty1 - qty2) * vlm1/qty1
+            elif qty2 > qty1:
+                self.cumulative_risk_exposure += (qty2 - qty1) * vlm2/qty2
 
     def run(self):
         monitor1 = self._build_monitor(self.cfg.get('type1'), self.cfg.get('market1'))
@@ -128,6 +152,7 @@ class ArbitrageTask:
                             monitor2.cancel_all_open_orders()
                             qty1, vlm1, fee1 = order_result1 if order_result1 else (0.0, 0.0, 0.0)
                             qty2, vlm2, fee2 = order_result2 if order_result2 else (0.0, 0.0, 0.0)
+                            self._update_trade_stats(qty1, vlm1, fee1, qty2, vlm2, fee2)
                     
                     # 检查是否能从market1买入，在market2卖出获利
                     if market2_bid and market1_ask:
@@ -137,12 +162,13 @@ class ArbitrageTask:
                         limited_quantity = min(quantity * self.max_arb_ratio, self.max_arb_quantity)
                         if limited_quantity > 0:
                             self.arb_cnt += 1
-                            order_result1 = monitor1.place_limit_order_fak(1-buy_price, limited_quantity, True)  # 在market1买入yes
-                            order_result2 = monitor2.place_limit_order_fak(sell_price, limited_quantity, 'BUY', False) # 在market2卖出yes（即买入no）
+                            order_result1 = monitor1.place_limit_order_fak(buy_price, limited_quantity, 'BUY', True)  # 在market1买入yes
+                            order_result2 = monitor2.place_limit_order_fak(1-sell_price, limited_quantity, 'BUY', False) # 在market2卖出yes（即买入no）
                             monitor1.cancel_all_open_orders()
                             monitor2.cancel_all_open_orders()
                             qty1, vlm1, fee1 = order_result1 if order_result1 else (0.0, 0.0, 0.0)
                             qty2, vlm2, fee2 = order_result2 if order_result2 else (0.0, 0.0, 0.0)
+                            self._update_trade_stats(qty1, vlm1, fee1, qty2, vlm2, fee2)
                     
                     result = {
                         'market1_bid': {'value': market1_bid.value, 'quantity': market1_bid.quantity} if market1_bid else '-',
@@ -151,6 +177,9 @@ class ArbitrageTask:
                         'market2_ask': {'value': market2_ask.value, 'quantity': market2_ask.quantity} if market2_ask else '-',
                         'arbitrage_spread': round(arb_spread, 6) if arb_spread is not None else '-',
                         'arbitrage_quantity': round(quantity, 6) if quantity is not None else '-',
+                        'cumulative_profit': round(self.cumulative_profit, 6),
+                        'cumulative_risk_exposure': round(self.cumulative_risk_exposure, 6),
+                        'cumulative_fee': round(self.cumulative_fee, 6),
                     }
                 if result is None:
                     result = {
@@ -160,6 +189,9 @@ class ArbitrageTask:
                         'market2_ask': {'value': market2_ask.value, 'quantity': market2_ask.quantity} if market2_ask else '-',
                         'arbitrage_spread': '-',
                         'arbitrage_quantity': '-',
+                        'cumulative_profit': round(self.cumulative_profit, 6),
+                        'cumulative_risk_exposure': round(self.cumulative_risk_exposure, 6),
+                        'cumulative_fee': round(self.cumulative_fee, 6),
                     }
 
                 # Push to queue
