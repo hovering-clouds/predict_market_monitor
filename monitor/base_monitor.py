@@ -27,7 +27,7 @@ class BaseMonitor(ABC):
 def build_kalshi_monitor(market_type: str, **kwargs) -> Optional[BaseMonitor]:
     """构建 Kalshi Monitor 实例"""
     try:
-        from kalshi.kalshi_monitor import KalshiMonitor
+        from .kalshi.kalshi_monitor import KalshiMonitor
         return KalshiMonitor(market_type=market_type, **kwargs)
     except Exception as e:
         logger.error(f"Error building Kalshi monitor for {market_type}: {e}")
@@ -37,7 +37,7 @@ def build_kalshi_monitor(market_type: str, **kwargs) -> Optional[BaseMonitor]:
 def build_limitless_monitor(market_type: str, **kwargs) -> Optional[BaseMonitor]:
     """构建 Limitless Monitor 实例"""
     try:
-        from limitless.limitless_monitor import LimitlessMonitor
+        from .limitless.limitless_monitor import LimitlessMonitor
         return LimitlessMonitor(market_type=market_type, **kwargs)
     except Exception as e:
         logger.error(f"Error building Limitless monitor for {market_type}: {e}")
@@ -47,7 +47,7 @@ def build_limitless_monitor(market_type: str, **kwargs) -> Optional[BaseMonitor]
 def build_polymarket_monitor(market_type: str, **kwargs) -> Optional[BaseMonitor]:
     """构建 Polymarket Monitor 实例"""
     try:
-        from polymarket.polymarket_monitor import PolymarketMonitor
+        from .polymarket.polymarket_monitor import PolymarketMonitor
         return PolymarketMonitor(market_type=market_type, **kwargs)
     except Exception as e:
         logger.error(f"Error building Polymarket monitor for {market_type}: {e}")
