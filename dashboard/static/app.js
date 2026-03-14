@@ -29,6 +29,7 @@ function addMonitorCard(m) {
         <div><strong>最小价差:</strong> ${m.min_spread}</div>
         <div><strong>最大套利比例:</strong> ${(m.max_arb_ratio * 100).toFixed(1)}%</div>
         <div><strong>最大套利数量:</strong> ${isFinite(m.max_arb_quantity) ? m.max_arb_quantity : '无限制'}</div>
+        <div><strong>最大套利次数:</strong> ${m.max_arb_cnt > 0 ? m.max_arb_cnt : '无限制'}</div>
       </div>
       <div class="ob" style="margin-top:8px">
         <div><em>等待数据...</em></div>
@@ -147,6 +148,8 @@ arbitrageForm.onsubmit = async (ev) => {
   const max_arb_ratio = Number(document.getElementById('arb-max-ratio').value) || 1.0;
   const max_arb_quantity_input = Number(document.getElementById('arb-max-quantity').value);
   const max_arb_quantity = max_arb_quantity_input > 0 ? max_arb_quantity_input : null;
+  const max_arb_cnt_input = Number(document.getElementById('arb-max-cnt').value);
+  const max_arb_cnt = max_arb_cnt_input > 0 ? Math.floor(max_arb_cnt_input) : 0;
 
   const res = await fetch('/api/arbitrage', {
     method: 'POST',
@@ -156,6 +159,7 @@ arbitrageForm.onsubmit = async (ev) => {
       type2, market2,
       max_arb_ratio,
       max_arb_quantity,
+      max_arb_cnt,
       freq,
       min_spread
     })

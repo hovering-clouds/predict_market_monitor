@@ -25,17 +25,19 @@ class OrderBook:
         self.bids = bids  
         self.asks = asks
 
-    def find_arbitrage_opportunity(self, other: 'OrderBook', min_spread: float) -> Tuple[float, float]:
-        """Returns (arbitrage_spread, arbitrage_quantity)"""
-        arbitrage_spread = max(other.bids[0].value - self.asks[0].value, self.bids[0].value - other.asks[0].value)
-        result1 = _match_arbitrage_orders(self.asks, other.bids, min_spread)
-        if result1 is not None:
-            return arbitrage_spread, result1[2]
-        result2 = _match_arbitrage_orders(other.asks, self.bids, min_spread)
-        if result2 is not None:
-            return arbitrage_spread, result2[2]
-        return arbitrage_spread, 0.0
-    
+    def find_arbitrage_opportunity(self, other: 'OrderBook', min_spread: float) -> Tuple[float, float, float]:
+        """
+            Only consider BUY on itself and SELL on the other.\n
+            Returns (buy price on itself, sell price on the other, arbitrage_quantity)
+        """
+        result = _match_arbitrage_orders(self.asks, other.bids, min_spread)
+        if result:
+            validi, validj, quantity = result
+            buy_price = self.asks[validi].value
+            sell_price = other.bids[validj].value
+            return buy_price, sell_price, quantity
+        return 0.0, 0.0, 0.0
+
 
 
 def _match_arbitrage_orders(ob1_ask: List[PriceInfo], ob2_bid: List[PriceInfo], min_spread: float) -> Tuple[int, int, float] | None:

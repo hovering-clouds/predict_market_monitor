@@ -73,6 +73,7 @@ def create_app(manager: TaskManager | None = None) -> Flask:
             'market2': data.get('market2'),
             'max_arb_ratio': float(data.get('max_arb_ratio', 1.0)),
             'max_arb_quantity': float(data.get('max_arb_quantity', float('inf'))) if data.get('max_arb_quantity') else float('inf'),
+            'max_arb_cnt': int(data.get('max_arb_cnt', 0) or 0),
             'freq': float(data.get('freq', 5)),
             'min_spread': float(data.get('min_spread', 0.01))
         }
