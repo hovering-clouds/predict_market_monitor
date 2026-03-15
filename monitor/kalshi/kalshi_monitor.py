@@ -21,7 +21,7 @@ class KalshiMonitor(BaseMonitor):
         self.client = None
         try:
             self.client = KalshiClient(self.config)
-            self.patch_client_method()
+            #self.patch_client_method()
             self.market = _build_kalshi_market_finder(market_type=market_type, **kwargs)
         except Exception as e:
             logger.error(f"Error initializing Kalshi monitor for {market_type}: {e}")
@@ -80,10 +80,10 @@ class KalshiMonitor(BaseMonitor):
             asks = []
             bids = []
             # yes bids, price from lower to higher
-            for lst in reversed(response.orderbook.yes_dollars):
+            for lst in reversed(response.orderbook_fp.yes_dollars):
                 bids.append(PriceInfo(value=float(lst[0]), quantity=float(lst[1])))
             # no bids, price from lower to higher
-            for lst in reversed(response.orderbook.no_dollars):
+            for lst in reversed(response.orderbook_fp.no_dollars):
                 asks.append(PriceInfo(value=1-float(lst[0]), quantity=float(lst[1])))
         except Exception as e:
             logger.error(f"Error processing orderbook data for token {self.market.get_slug()}: {e}")
@@ -121,7 +121,7 @@ class KalshiMonitor(BaseMonitor):
             return None
         
         order_id = response.order.order_id
-        remaining_count = response.order.remaining_count
+        remaining_count = response.order.remaining_count_fp
         if remaining_count > 0:
             logger.info(f"Order {order_id} not fully filled, canceling remaining {remaining_count}...")
             try:
@@ -132,11 +132,11 @@ class KalshiMonitor(BaseMonitor):
 
         try:
             response3 = self.client._orders_api.get_order(order_id)
-            fill_count = response3.order.fill_count
-            taker_amount = response3.order.taker_fill_cost / 100  # 转换为美元
-            maker_amount = response3.order.maker_fill_cost / 100  # 转换为美元
-            taker_fee = response3.order.taker_fees / 100  # 转换为美元
-            maker_fee = response3.order.maker_fees / 100  # 转换为美元
+            fill_count = float(response3.order.fill_count_fp)
+            taker_amount = float(response3.order.taker_fill_cost_dollars)
+            maker_amount = float(response3.order.maker_fill_cost_dollars)
+            taker_fee = float(response3.order.taker_fees_dollars)
+            maker_fee = float(response3.order.maker_fees_dollars)
             return fill_count, taker_amount + maker_amount, taker_fee + maker_fee
 
         except Exception as e:

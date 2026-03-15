@@ -156,7 +156,7 @@ class ArbitrageTask:
                     
                     # 检查是否能从market1买入，在market2卖出获利
                     if market2_bid and market1_ask:
-                        arb_spread = market2_bid.value - market1_ask.value
+                        arb_spread = max(market2_bid.value - market1_ask.value, arb_spread or -float('inf'))
                         buy_price, sell_price, quantity = ob1.find_arbitrage_opportunity(ob2, min_spread)
                         # 应用最大套利比例和数量限制
                         limited_quantity = min(quantity * self.max_arb_ratio, self.max_arb_quantity)

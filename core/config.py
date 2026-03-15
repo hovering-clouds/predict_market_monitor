@@ -29,9 +29,9 @@ class Config:
         The config file should be located at the project root directory.
         If the file doesn't exist, a warning is logged and an empty config is used.
         """
-        # Find the project root (parent of the arbitrage directory)
+        # Find the project root (parent of the core directory)
         current_dir = Path(__file__).parent
-        config_file = current_dir / "config.yaml"
+        config_file = current_dir.parent / "config.yaml"
 
         if not config_file.exists():
             logger.warning(f"Config file not found at {config_file}. Using empty configuration.")
