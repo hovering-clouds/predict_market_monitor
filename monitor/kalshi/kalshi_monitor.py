@@ -121,7 +121,7 @@ class KalshiMonitor(BaseMonitor):
             return None
         
         order_id = response.order.order_id
-        remaining_count = response.order.remaining_count_fp
+        remaining_count = float(response.order.remaining_count_fp)
         if remaining_count > 0:
             logger.info(f"Order {order_id} not fully filled, canceling remaining {remaining_count}...")
             try:
