@@ -1,11 +1,11 @@
 import threading
 import time
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 from queue import Queue, Empty
 import json
 
 from core import logger
-from monitor import build_monitor
+from monitor import build_monitor, BaseMonitor
 
 
 class MonitorTask:
@@ -91,6 +91,55 @@ class ArbitrageTask:
         """Build a monitor instance using builder functions."""
         return build_monitor(monitor_type=mtype, market_type="manual", slug=market)
 
+    def _execute_order_leg(
+        self,
+        monitor: BaseMonitor,
+        price: float,
+        size: float,
+        side: str,
+        yes_or_no: bool,
+    ) -> Tuple[float, float, float]:
+        """Execute one market leg and always attempt to cancel leftovers."""
+        default_result = (0.0, 0.0, 0.0)
+        if not monitor:
+            return default_result
+
+        try:
+            order_result = monitor.place_limit_order_fak(price, size, side, yes_or_no)
+            if not order_result:
+                return default_result
+            qty, volume, fee = order_result
+            return float(qty or 0.0), float(volume or 0.0), float(fee or 0.0)
+        except Exception as e:
+            logger.error(f"Error placing order leg for task {self.id}: {e}")
+            return default_result
+        finally:
+            try:
+                monitor.cancel_all_open_orders()
+            except Exception as e:
+                logger.error(f"Error canceling open orders for task {self.id}: {e}")
+
+    def _execute_parallel_order_legs(
+        self,
+        leg1: Tuple[BaseMonitor, float, float, str, bool],
+        leg2: Tuple[BaseMonitor, float, float, str, bool],
+    ) -> Tuple[Tuple[float, float, float], Tuple[float, float, float]]:
+        """Run both market legs concurrently to reduce sequential blocking time."""
+        results = [(0.0, 0.0, 0.0), (0.0, 0.0, 0.0)]
+
+        def _runner(index: int, leg: Tuple[BaseMonitor, float, float, str, bool]):
+            monitor, price, size, side, yes_or_no = leg
+            results[index] = self._execute_order_leg(monitor, price, size, side, yes_or_no)
+
+        thread1 = threading.Thread(target=_runner, args=(0, leg1), daemon=True)
+        thread2 = threading.Thread(target=_runner, args=(1, leg2), daemon=True)
+        thread1.start()
+        thread2.start()
+        thread1.join()
+        thread2.join()
+
+        return results[0], results[1]
+
     def _update_trade_stats(self, qty1: float, vlm1: float, fee1: float, qty2: float, vlm2: float, fee2: float):
         """Accumulate fee/profit/exposure based on realized two-leg execution."""
         qty1 = float(qty1 or 0.0)
@@ -146,12 +195,12 @@ class ArbitrageTask:
                         limited_quantity = min(quantity * self.max_arb_ratio, self.max_arb_quantity)
                         if limited_quantity > 0:
                             self.arb_cnt += 1
-                            order_result1 = monitor1.place_limit_order_fak(1-sell_price, limited_quantity, 'BUY', False) # 在market1卖出yes（即买入no）
-                            order_result2 = monitor2.place_limit_order_fak(buy_price, limited_quantity, 'BUY', True)    # 在market2买入yes
-                            monitor1.cancel_all_open_orders()
-                            monitor2.cancel_all_open_orders()
-                            qty1, vlm1, fee1 = order_result1 if order_result1 else (0.0, 0.0, 0.0)
-                            qty2, vlm2, fee2 = order_result2 if order_result2 else (0.0, 0.0, 0.0)
+                            order_result1, order_result2 = self._execute_parallel_order_legs(
+                                (monitor1, 1 - sell_price, limited_quantity, 'BUY', False),
+                                (monitor2, buy_price, limited_quantity, 'BUY', True),
+                            )
+                            qty1, vlm1, fee1 = order_result1
+                            qty2, vlm2, fee2 = order_result2
                             self._update_trade_stats(qty1, vlm1, fee1, qty2, vlm2, fee2)
                     
                     # 检查是否能从market1买入，在market2卖出获利
@@ -162,12 +211,12 @@ class ArbitrageTask:
                         limited_quantity = min(quantity * self.max_arb_ratio, self.max_arb_quantity)
                         if limited_quantity > 0:
                             self.arb_cnt += 1
-                            order_result1 = monitor1.place_limit_order_fak(buy_price, limited_quantity, 'BUY', True)  # 在market1买入yes
-                            order_result2 = monitor2.place_limit_order_fak(1-sell_price, limited_quantity, 'BUY', False) # 在market2卖出yes（即买入no）
-                            monitor1.cancel_all_open_orders()
-                            monitor2.cancel_all_open_orders()
-                            qty1, vlm1, fee1 = order_result1 if order_result1 else (0.0, 0.0, 0.0)
-                            qty2, vlm2, fee2 = order_result2 if order_result2 else (0.0, 0.0, 0.0)
+                            order_result1, order_result2 = self._execute_parallel_order_legs(
+                                (monitor1, buy_price, limited_quantity, 'BUY', True),
+                                (monitor2, 1 - sell_price, limited_quantity, 'BUY', False),
+                            )
+                            qty1, vlm1, fee1 = order_result1
+                            qty2, vlm2, fee2 = order_result2
                             self._update_trade_stats(qty1, vlm1, fee1, qty2, vlm2, fee2)
                     
                     result = {
