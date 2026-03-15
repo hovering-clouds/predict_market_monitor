@@ -38,7 +38,7 @@ function renderEmptyRow(message) {
 
 function updateHint() {
   queryHint.textContent = eventPlatformInput.value === 'kalshi'
-    ? 'Kalshi 使用 event ticker，例如 KXOSCARACTO-26。'
+    ? 'Kalshi 使用 event ticker，请注意字母全部大写，例如 KXOSCARACTO-26。'
     : 'Polymarket 使用 event slug，例如 oscars-2026-best-actor-winner。';
 }
 

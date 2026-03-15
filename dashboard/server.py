@@ -54,7 +54,7 @@ def _build_event_market_response(platform: str, identifier: str) -> dict[str, An
 
     if normalized_platform == 'kalshi':
         payload = _fetch_json(
-            f'https://api.elections.kalshi.com/trade-api/v2/events/{quote(normalized_identifier, safe="")}'
+            f'https://api.elections.kalshi.com/trade-api/v2/events/{quote(normalized_identifier.upper(), safe="")}'
         )
         event = payload.get('event') or {}
         raw_markets = payload.get('markets') or []
