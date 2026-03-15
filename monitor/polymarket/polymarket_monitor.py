@@ -124,10 +124,12 @@ class PolymarketMonitor(BaseMonitor):
             for trade in order.get("associate_trades", []):
                 param = TradeParams(id=trade)
                 response3 = self.client.get_trades(params=param)
-                size = float(response3.get("size"))
-                price = float(response3.get("price"))
+                # get_trades returns a list; take the first matching element
+                trade_data = response3[0] if isinstance(response3, list) and response3 else response3
+                size = float(trade_data.get("size"))
+                price = float(trade_data.get("price"))
                 amount = size * price
-                base_rate = float(response3.get("fee_rate_bps", 0)) / 10000
+                base_rate = float(trade_data.get("fee_rate_bps", 0)) / 10000
                 fee = base_rate * min(price, 1 - price) * size # 估算，实际上是按照token收的，这里计算的是收取token的当前价值
                 matched_amount += amount
                 total_fee += fee
