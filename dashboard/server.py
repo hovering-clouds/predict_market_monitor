@@ -7,8 +7,10 @@ monitor will be used so the dashboard remains functional.
 
 The server provides:
 - static UI at `/dashboard` (serves `static/index.html`)
+- static UI at `/dashboard/event-markets` for event-to-markets lookup
 - REST API under `/api/monitors` for create/list/delete
 - REST API under `/api/arbitrage` for arbitrage monitoring
+- REST API under `/api/event-markets` for querying event markets by platform identifier
 - SSE stream at `/stream/<monitor_id>` to push best bid/ask
 """
 from __future__ import annotations
@@ -20,6 +22,9 @@ import json
 from queue import Queue, Empty
 from typing import Dict, Any, Optional
 from importlib import import_module
+from urllib.error import HTTPError, URLError
+from urllib.parse import quote
+from urllib.request import Request, urlopen
 from core.logger import logger
 
 from flask import Flask, request, jsonify, send_from_directory, Response, abort
@@ -34,6 +39,61 @@ from task import TaskManager
 STATIC_DIR = 'static'
 
 
+def _fetch_json(url: str) -> Any:
+    req = Request(url, headers={'User-Agent': 'arbitrage-dashboard/1.0'})
+    with urlopen(req, timeout=10) as resp:
+        return json.loads(resp.read().decode('utf-8'))
+
+
+def _build_event_market_response(platform: str, identifier: str) -> dict[str, Any]:
+    normalized_platform = (platform or '').strip().lower()
+    normalized_identifier = (identifier or '').strip()
+
+    if not normalized_identifier:
+        raise ValueError('missing event identifier')
+
+    if normalized_platform == 'kalshi':
+        payload = _fetch_json(
+            f'https://api.elections.kalshi.com/trade-api/v2/events/{quote(normalized_identifier, safe="")}'
+        )
+        event = payload.get('event') or {}
+        raw_markets = payload.get('markets') or []
+        return {
+            'platform': normalized_platform,
+            'event_identifier': normalized_identifier,
+            'event_title': event.get('title') or normalized_identifier,
+            'markets': [
+                {
+                    'identifier': market.get('ticker') or '',
+                    'title': market.get('title') or market.get('subtitle') or '',
+                }
+                for market in raw_markets
+                if market.get('ticker')
+            ],
+        }
+
+    if normalized_platform == 'polymarket':
+        payload = _fetch_json(
+            f'https://gamma-api.polymarket.com/events/slug/{quote(normalized_identifier, safe="")}'
+        )
+        raw_markets = payload.get('markets') or []
+        return {
+            'platform': normalized_platform,
+            'event_identifier': normalized_identifier,
+            'event_title': payload.get('title') or payload.get('slug') or normalized_identifier,
+            'markets': [
+                {
+                    'identifier': market.get('slug') or str(market.get('id') or ''),
+                    'title': market.get('title') or market.get('question') or market.get('groupItemTitle') or '',
+                }
+                for market in raw_markets
+                if market.get('slug') or market.get('id')
+            ],
+        }
+
+    raise ValueError(f'unsupported platform: {platform}')
+
+
 def create_app(manager: TaskManager | None = None) -> Flask:
     app = Flask(__name__, static_folder=STATIC_DIR, static_url_path='/static')
     manager = manager or TaskManager()
@@ -45,6 +105,10 @@ def create_app(manager: TaskManager | None = None) -> Flask:
     @app.route('/dashboard')
     def dashboard_index():
         return send_from_directory(STATIC_DIR, 'index.html')
+
+    @app.route('/dashboard/event-markets')
+    def dashboard_event_markets():
+        return send_from_directory(STATIC_DIR, 'event-markets.html')
 
     @app.route('/api/monitors', methods=['GET', 'POST'])
     def api_monitors():
@@ -79,6 +143,24 @@ def create_app(manager: TaskManager | None = None) -> Flask:
         }
         created = manager.create_arbitrage(cfg)
         return jsonify(created), 201
+
+    @app.route('/api/event-markets', methods=['GET'])
+    def api_event_markets():
+        platform = request.args.get('platform', '')
+        identifier = request.args.get('identifier', '')
+
+        if not platform or not identifier:
+            return jsonify({'error': 'missing query params: platform, identifier'}), 400
+
+        try:
+            return jsonify(_build_event_market_response(platform, identifier))
+        except ValueError as exc:
+            return jsonify({'error': str(exc)}), 400
+        except HTTPError as exc:
+            detail = exc.reason or 'upstream request failed'
+            return jsonify({'error': f'upstream request failed: {detail}'}), exc.code
+        except URLError as exc:
+            return jsonify({'error': f'upstream request failed: {exc.reason}'}), 502
 
     @app.route('/api/monitors/<mid>', methods=['DELETE'])
     def api_cancel(mid):

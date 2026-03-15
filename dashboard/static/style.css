@@ -1,10 +1,17 @@
 body{font-family: system-ui, -apple-system, Roboto, "Helvetica Neue", Arial; background:#f6f8fa; color:#111}
-.container{max-width:900px;margin:24px auto;padding:12px}
+.container{max-width:960px;margin:24px auto;padding:12px}
+.page-header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+.page-subtitle{margin:6px 0 0;color:#586069}
+.page-nav{display:flex;gap:8px;flex-wrap:wrap}
+.nav-link{display:inline-flex;align-items:center;padding:8px 12px;border:1px solid #d0d7de;border-radius:999px;background:#fff;color:#24292f;text-decoration:none}
+.nav-link.active{background:#24292f;border-color:#24292f;color:#fff}
 .panel{background:#fff;border:1px solid #e1e4e8;padding:12px;margin-bottom:12px;border-radius:6px}
 .panel h2{margin-top:0}
 .panel h3{margin-top:12px;margin-bottom:8px;font-size:14px;color:#555}
 form label{display:block;margin:8px 0}
 input,select{padding:6px;margin-left:8px;border:1px solid #ddd;border-radius:4px}
+button{padding:8px 14px;border:1px solid #24292f;border-radius:6px;background:#24292f;color:#fff;cursor:pointer}
+button:disabled{opacity:.65;cursor:wait}
 .arbitrage-pair{border:1px solid #e1e4e8;padding:10px;margin:10px 0;border-radius:4px;background:#fafbfc}
 .card{border:1px solid #ddd;padding:8px;margin:8px 0;border-radius:6px;background:#fff}
 .card .actions{margin-top:8px}
@@ -13,3 +20,24 @@ input,select{padding:6px;margin-left:8px;border:1px solid #ddd;border-radius:4px
 .card.arbitrage-card .ob{color:#155724}
 .arb-spread{color:#28a745;font-weight:bold;margin-top:8px}
 .arb-spread em{color:#dc3545;font-weight:normal}
+.inline-form{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap}
+.inline-form label{min-width:220px;flex:1 1 220px}
+.inline-form input,.inline-form select{display:block;width:100%;margin:6px 0 0;padding:8px 10px;box-sizing:border-box}
+.hint{margin:10px 0 0;color:#6e7781;font-size:13px}
+.result-header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.status-banner{display:none;margin-top:12px;padding:10px 12px;border-radius:6px}
+.status-banner.info{display:block;background:#f6f8fa;color:#57606a;border:1px solid #d0d7de}
+.status-banner.error{display:block;background:#ffebe9;color:#cf222e;border:1px solid #ff818266}
+.status-banner.success{display:block;background:#dafbe1;color:#1a7f37;border:1px solid #81c995}
+.table-wrap{margin-top:12px;overflow:auto}
+.market-table{width:100%;border-collapse:collapse}
+.market-table th,.market-table td{padding:10px 12px;border-bottom:1px solid #eaeef2;text-align:left;vertical-align:top}
+.market-table th{font-size:13px;color:#57606a;background:#f6f8fa}
+.empty-state{text-align:center;color:#6e7781}
+
+@media (max-width: 640px){
+	.container{margin:12px auto;padding:8px}
+	.panel{padding:10px}
+	.inline-form{align-items:stretch}
+	button{width:100%}
+}

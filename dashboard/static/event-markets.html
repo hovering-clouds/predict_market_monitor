@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Event Market Lookup</title>
+    <link rel="stylesheet" href="/static/style.css">
+  </head>
+  <body>
+    <div class="container">
+      <header class="page-header">
+        <div>
+          <h1>事件市场查询</h1>
+          <p class="page-subtitle">按事件标识符查询 Kalshi 或 Polymarket 下的全部市场</p>
+        </div>
+        <nav class="page-nav">
+          <a class="nav-link" href="/dashboard">监控面板</a>
+          <a class="nav-link active" href="/dashboard/event-markets">事件查询</a>
+        </nav>
+      </header>
+
+      <section class="panel">
+        <h2>查询条件</h2>
+        <form id="eventQueryForm" class="inline-form">
+          <label>平台
+            <select id="eventPlatform">
+              <option value="kalshi">Kalshi</option>
+              <option value="polymarket">Polymarket</option>
+            </select>
+          </label>
+          <label>事件标识符
+            <input id="eventIdentifier" placeholder="例如 KXOSCARACTO-26 或 oscars-2026-best-actor-winner" required />
+          </label>
+          <button id="eventQueryButton" type="submit">查询</button>
+        </form>
+        <p id="queryHint" class="hint">Kalshi 使用 event ticker，Polymarket 使用 event slug。</p>
+      </section>
+
+      <section class="panel" id="eventResultPanel">
+        <div class="result-header">
+          <div>
+            <h2 id="eventResultTitle">尚未查询</h2>
+            <p id="eventResultMeta" class="page-subtitle">提交平台和事件标识符后，这里会显示 market 列表。</p>
+          </div>
+        </div>
+
+        <div id="eventLookupStatus" class="status-banner" aria-live="polite"></div>
+
+        <div class="table-wrap">
+          <table class="market-table">
+            <thead>
+              <tr>
+                <th>市场标识符</th>
+                <th>标题</th>
+              </tr>
+            </thead>
+            <tbody id="eventMarketsBody">
+              <tr>
+                <td colspan="2" class="empty-state">暂无数据</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <script src="/static/event-markets.js"></script>
+  </body>
+</html>
