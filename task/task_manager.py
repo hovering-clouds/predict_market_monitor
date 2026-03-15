@@ -38,10 +38,11 @@ class TaskManager:
             'max_arb_ratio': cfg.get('max_arb_ratio', 1.0),
             'max_arb_quantity': cfg.get('max_arb_quantity', float('inf')),
             'max_arb_cnt': cfg.get('max_arb_cnt', 0),
+            'arb_cnt': task.arb_cnt,
             'market2': cfg.get('market2'),
             'min_spread': cfg.get('min_spread'),
             'freq': cfg.get('freq', 5),
-            'status': 'running'
+            'status': task.status
         }
 
     def list_monitors(self):
@@ -49,6 +50,7 @@ class TaskManager:
             result = []
             for mid, t in self._tasks.items():
                 if isinstance(t, ArbitrageTask):
+                    status = t.status
                     result.append({
                         'id': mid,
                         'arbitrage_pair': True,
@@ -56,12 +58,13 @@ class TaskManager:
                         'max_arb_ratio': t.cfg.get('max_arb_ratio', 1.0),
                         'max_arb_quantity': t.cfg.get('max_arb_quantity', float('inf')),
                         'max_arb_cnt': t.cfg.get('max_arb_cnt', 0),
+                        'arb_cnt': t.arb_cnt,
                         'market1': t.cfg.get('market1'),
                         'type2': t.cfg.get('type2'),
                         'market2': t.cfg.get('market2'),
                         'min_spread': t.cfg.get('min_spread'),
                         'freq': t.cfg.get('freq', 5),
-                        'status': 'running'
+                        'status': status
                     })
                 else:
                     result.append({

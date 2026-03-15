@@ -74,6 +74,7 @@ class ArbitrageTask:
         self.max_arb_quantity = float(cfg.get('max_arb_quantity', float('inf')))  # 默认为无限制
         self.max_arb_cnt = int(cfg.get('max_arb_cnt', 0))  # 默认为不限制套利次数
         self.arb_cnt = 0 # 已执行的套利次数
+        self.status = 'running'
         self.cumulative_profit = 0.0
         self.cumulative_risk_exposure = 0.0
         self.cumulative_fee = 0.0
@@ -161,6 +162,9 @@ class ArbitrageTask:
             elif qty2 > qty1:
                 self.cumulative_risk_exposure += (qty2 - qty1) * vlm2/qty2
 
+    def _is_arbitrage_limit_reached(self) -> bool:
+        return self.max_arb_cnt > 0 and self.arb_cnt >= self.max_arb_cnt
+
     def run(self):
         monitor1 = self._build_monitor(self.cfg.get('type1'), self.cfg.get('market1'))
         monitor2 = self._build_monitor(self.cfg.get('type2'), self.cfg.get('market2'))
@@ -169,7 +173,26 @@ class ArbitrageTask:
 
         while not self._stop.is_set():
             try:
-                if self.max_arb_cnt > 0 and self.arb_cnt >= self.max_arb_cnt:
+                if self._is_arbitrage_limit_reached():
+                    self.status = 'finished'
+                    final_result = {
+                        'market1_bid': '-',
+                        'market1_ask': '-',
+                        'market2_bid': '-',
+                        'market2_ask': '-',
+                        'arbitrage_spread': '-',
+                        'arbitrage_quantity': '-',
+                        'arb_cnt': self.arb_cnt,
+                        'max_arb_cnt': self.max_arb_cnt,
+                        'status': self.status,
+                        'cumulative_profit': round(self.cumulative_profit, 6),
+                        'cumulative_risk_exposure': round(self.cumulative_risk_exposure, 6),
+                        'cumulative_fee': round(self.cumulative_fee, 6),
+                    }
+                    try:
+                        self.queue.put_nowait(json.dumps(final_result))
+                    except Exception:
+                        pass
                     logger.info(f"Reached max arbitrage count {self.max_arb_cnt}, stopping task {self.id}")
                     break
                 # Get orderbooks from both markets
@@ -226,6 +249,9 @@ class ArbitrageTask:
                         'market2_ask': {'value': market2_ask.value, 'quantity': market2_ask.quantity} if market2_ask else '-',
                         'arbitrage_spread': round(arb_spread, 6) if arb_spread is not None else '-',
                         'arbitrage_quantity': round(quantity, 6) if quantity is not None else '-',
+                        'arb_cnt': self.arb_cnt,
+                        'max_arb_cnt': self.max_arb_cnt,
+                        'status': self.status,
                         'cumulative_profit': round(self.cumulative_profit, 6),
                         'cumulative_risk_exposure': round(self.cumulative_risk_exposure, 6),
                         'cumulative_fee': round(self.cumulative_fee, 6),
@@ -238,6 +264,9 @@ class ArbitrageTask:
                         'market2_ask': {'value': market2_ask.value, 'quantity': market2_ask.quantity} if market2_ask else '-',
                         'arbitrage_spread': '-',
                         'arbitrage_quantity': '-',
+                        'arb_cnt': self.arb_cnt,
+                        'max_arb_cnt': self.max_arb_cnt,
+                        'status': self.status,
                         'cumulative_profit': round(self.cumulative_profit, 6),
                         'cumulative_risk_exposure': round(self.cumulative_risk_exposure, 6),
                         'cumulative_fee': round(self.cumulative_fee, 6),
@@ -250,6 +279,7 @@ class ArbitrageTask:
                     pass
 
             except Exception as e:
+                self.status = 'aborted'
                 logger.error(f"Error in arbitrage task: {e}")
 
             time.sleep(freq)

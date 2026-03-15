@@ -13,6 +13,8 @@ function addMonitorCard(m) {
   const card = document.createElement('div');
   card.className = m.arbitrage_pair ? 'card arbitrage-card' : 'card';
   card.id = `mon-${m.id}`;
+  const initialStatus = typeof m.status === 'string' ? m.status : 'running';
+  const initialArbCount = Number.isFinite(Number(m.arb_cnt)) ? Number(m.arb_cnt) : 0;
   
   let contentHtml;
   
@@ -20,7 +22,7 @@ function addMonitorCard(m) {
   if (m.arbitrage_pair) {
     contentHtml = `
       <div><strong>${m.type1}</strong> - <strong>${m.type2}</strong> (<span class="freq">${m.freq}s</span>)</div>
-      <div>状态: <span class="status">${m.status}</span></div>
+      <div>状态: <span class="status">${initialStatus}</span></div>
     `;
     contentHtml += `
       <div style="margin-top:8px;padding-top:8px;border-top:1px solid #ddd">
@@ -30,6 +32,7 @@ function addMonitorCard(m) {
         <div><strong>最大套利比例:</strong> ${(m.max_arb_ratio * 100).toFixed(1)}%</div>
         <div><strong>最大套利数量:</strong> ${isFinite(m.max_arb_quantity) ? m.max_arb_quantity : '无限制'}</div>
         <div><strong>最大套利次数:</strong> ${m.max_arb_cnt > 0 ? m.max_arb_cnt : '无限制'}</div>
+        <div><strong>已套利次数:</strong> <span class="arb-cnt">${initialArbCount}</span></div>
       </div>
       <div class="ob" style="margin-top:8px">
         <div><em>等待数据...</em></div>
@@ -39,7 +42,7 @@ function addMonitorCard(m) {
   } else {
     contentHtml = `
       <div><strong>${m.type}</strong> — ${m.market} (<span class="freq">${m.freq}s</span>)</div>
-      <div>状态: <span class="status">${m.status}</span></div>
+      <div>状态: <span class="status">${initialStatus}</span></div>
     `;
     contentHtml += `<div class="ob"><em>等待数据...</em></div>`;
   }
@@ -81,14 +84,22 @@ function subscribeToMonitor(id, card, isArbitrage) {
   const evt = new EventSource(`/stream/${id}`);
   const obDiv = card.querySelector('.ob');
   const statusSpan = card.querySelector('.status');
+  const arbCountSpan = card.querySelector('.arb-cnt');
   const arbResultDiv = card.querySelector(`#arb-result-${id}`);
 
   evt.onmessage = (e) => {
     try {
       const d = JSON.parse(e.data);
-      statusSpan.textContent = '运行中';
+      const status = typeof d.status === 'string' ? d.status : 'running';
+      statusSpan.textContent = status;
       
       if (isArbitrage) {
+        const arbCount = asNumber(d.arb_cnt);
+        const maxArbCount = asNumber(d.max_arb_cnt);
+        if (arbCountSpan && arbCount !== null) {
+          arbCountSpan.textContent = String(Math.max(0, Math.floor(arbCount)));
+        }
+
         const market1Ask = d.market1_ask && typeof d.market1_ask === 'object' ? d.market1_ask : null;
         const market1Bid = d.market1_bid && typeof d.market1_bid === 'object' ? d.market1_bid : null;
         const market2Ask = d.market2_ask && typeof d.market2_ask === 'object' ? d.market2_ask : null;
@@ -114,6 +125,8 @@ function subscribeToMonitor(id, card, isArbitrage) {
           const cumulativeProfitText = formatFixed(d.cumulative_profit, 6, '0.000000');
           const cumulativeExposureText = formatFixed(d.cumulative_risk_exposure, 6, '0.000000');
           const cumulativeFeeText = formatFixed(d.cumulative_fee, 6, '0.000000');
+          const arbCountText = arbCount === null ? '-' : String(Math.max(0, Math.floor(arbCount)));
+          const maxArbCountText = maxArbCount !== null && maxArbCount > 0 ? String(Math.floor(maxArbCount)) : '无限制';
 
           arbResultDiv.innerHTML = `
             <div>${spreadDisplay} | <span>可套利数量: ${quantityText}</span></div>
@@ -121,9 +134,14 @@ function subscribeToMonitor(id, card, isArbitrage) {
               <span>累计获利: ${cumulativeProfitText}</span>
               <span> | 累计敞口: ${cumulativeExposureText}</span>
               <span> | 累计交易费: ${cumulativeFeeText}</span>
+              <span> | 已套利次数: ${arbCountText}/${maxArbCountText}</span>
             </div>
           `;
           arbResultDiv.style.display = 'block';
+        }
+
+        if (status === 'finished') {
+          evt.close();
         }
       } else {
         // 单个监控数据显示
@@ -138,7 +156,9 @@ function subscribeToMonitor(id, card, isArbitrage) {
   };
 
   evt.onerror = () => {
-    statusSpan.textContent = '连接中断';
+    if (statusSpan.textContent !== 'finished') {
+      statusSpan.textContent = 'disconnected';
+    }
     evt.close();
   };
 }
