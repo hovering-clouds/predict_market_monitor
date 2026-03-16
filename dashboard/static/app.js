@@ -45,11 +45,6 @@ function addMonitorCard(m) {
         <div><strong>最大套利数量:</strong> ${isFinite(m.max_arb_quantity) ? m.max_arb_quantity : '无限制'}</div>
         <div><strong>市场1预算:</strong> <span class="market1-budget">${market1BudgetText}</span></div>
         <div><strong>市场2预算:</strong> <span class="market2-budget">${market2BudgetText}</span></div>
-        <div><strong>市场1剩余预算:</strong> <span class="market1-remaining-budget">${market1RemainingText}</span></div>
-        <div><strong>市场2剩余预算:</strong> <span class="market2-remaining-budget">${market2RemainingText}</span></div>
-        <div><strong>市场1已用预算:</strong> <span class="market1-consumed-budget">${market1ConsumedText}</span></div>
-        <div><strong>市场2已用预算:</strong> <span class="market2-consumed-budget">${market2ConsumedText}</span></div>
-        <div><strong>已套利次数:</strong> <span class="arb-cnt">${initialArbCount}</span></div>
       </div>
       <div class="ob" style="margin-top:8px">
         <div><em>等待数据...</em></div>
