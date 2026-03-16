@@ -12,6 +12,7 @@ form label{display:block;margin:8px 0}
 input,select{padding:6px;margin-left:8px;border:1px solid #ddd;border-radius:4px}
 button{padding:8px 14px;border:1px solid #24292f;border-radius:6px;background:#24292f;color:#fff;cursor:pointer}
 button:disabled{opacity:.65;cursor:wait}
+button.secondary{background:#fff;color:#24292f}
 .arbitrage-pair{border:1px solid #e1e4e8;padding:10px;margin:10px 0;border-radius:4px;background:#fafbfc}
 .card{border:1px solid #ddd;padding:8px;margin:8px 0;border-radius:6px;background:#fff}
 .status{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600;line-height:1.4;background:#f3f4f6;color:#374151}
@@ -40,6 +41,14 @@ button:disabled{opacity:.65;cursor:wait}
 .market-table th,.market-table td{padding:10px 12px;border-bottom:1px solid #eaeef2;text-align:left;vertical-align:top}
 .market-table th{font-size:13px;color:#57606a;background:#f6f8fa}
 .empty-state{text-align:center;color:#6e7781}
+.log-viewer{margin-top:12px;max-height:70vh;overflow:auto;border:1px solid #1f2937;border-radius:8px;background:#0f172a;padding:12px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;font-size:12px;line-height:1.5;color:#dbe2ea}
+.log-line{display:grid;grid-template-columns:56px minmax(0,1fr);gap:10px;padding:2px 0;border-bottom:1px solid #1f2937}
+.log-line:last-child{border-bottom:none}
+.log-line-number{color:#94a3b8;text-align:right;user-select:none}
+.log-line-text{white-space:pre-wrap;word-break:break-word}
+.log-line.error .log-line-text{color:#fecaca}
+.log-line.warn .log-line-text{color:#fde68a}
+.log-empty{color:#94a3b8}
 
 @media (max-width: 640px){
 	.container{margin:12px auto;padding:8px}

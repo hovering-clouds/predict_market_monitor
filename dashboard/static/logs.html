@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>日志实时查看</title>
+    <link rel="stylesheet" href="/static/style.css">
+  </head>
+  <body>
+    <div class="container">
+      <header class="page-header">
+        <div>
+          <h1>日志实时查看</h1>
+          <p class="page-subtitle">自动刷新并展示日志文件最新 50 行，便于观察错误。</p>
+        </div>
+        <nav class="page-nav">
+          <a class="nav-link" href="/dashboard">监控面板</a>
+          <a class="nav-link" href="/dashboard/event-markets">事件查询</a>
+          <a class="nav-link active" href="/dashboard/logs">监控日志</a>
+        </nav>
+      </header>
+
+      <section class="panel">
+        <h2>日志设置</h2>
+        <form id="logSettingsForm" class="inline-form">
+          <label>显示行数
+            <input id="logLineCount" type="number" min="1" max="200" value="50" />
+          </label>
+          <label>刷新间隔(秒)
+            <input id="logRefreshSeconds" type="number" min="1" max="30" value="2" />
+          </label>
+          <button type="submit" id="logApplyButton">应用设置</button>
+          <button type="button" class="secondary" id="logToggleButton">暂停自动刷新</button>
+          <button type="button" class="secondary" id="logManualRefreshButton">立即刷新</button>
+        </form>
+      </section>
+
+      <section class="panel">
+        <h2 id="logViewerTitle">arbitrage.log</h2>
+        <p id="logViewerMeta" class="page-subtitle">等待加载...</p>
+        <div id="logStatusBanner" class="status-banner info"></div>
+        <div id="logViewer" class="log-viewer" aria-live="polite">
+          <div class="log-empty">日志加载中...</div>
+        </div>
+      </section>
+    </div>
+
+    <script src="/static/logs.js"></script>
+  </body>
+</html>

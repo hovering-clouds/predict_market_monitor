@@ -8,13 +8,16 @@ monitor will be used so the dashboard remains functional.
 The server provides:
 - static UI at `/dashboard` (serves `static/index.html`)
 - static UI at `/dashboard/event-markets` for event-to-markets lookup
+- static UI at `/dashboard/logs` for live log tail
 - REST API under `/api/monitors` for create/list/delete
 - REST API under `/api/arbitrage` for arbitrage monitoring
 - REST API under `/api/event-markets` for querying event markets by platform identifier
+- REST API under `/api/logs/latest` for reading latest log lines
 - SSE stream at `/stream/<monitor_id>` to push best bid/ask
 """
 from __future__ import annotations
 
+from collections import deque
 import threading
 import time
 import uuid
@@ -37,6 +40,25 @@ from task import TaskManager
 
 
 STATIC_DIR = 'static'
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_LOG_FILE = (PROJECT_ROOT / 'logs' / 'arbitrage.log').resolve()
+
+
+def _parse_lines_arg(lines_raw: str | None, default: int = 50) -> int:
+    try:
+        lines = int(lines_raw) if lines_raw is not None else default
+    except (TypeError, ValueError):
+        raise ValueError('lines must be an integer')
+
+    return max(1, min(lines, 200))
+
+
+def _read_latest_log_lines(log_file: Path, max_lines: int) -> list[str]:
+    if not log_file.exists():
+        return []
+
+    with log_file.open('r', encoding='utf-8', errors='replace') as f:
+        return [line.rstrip('\n') for line in deque(f, maxlen=max_lines)]
 
 
 def _fetch_json(url: str) -> Any:
@@ -110,6 +132,10 @@ def create_app(manager: TaskManager | None = None) -> Flask:
     def dashboard_event_markets():
         return send_from_directory(STATIC_DIR, 'event-markets.html')
 
+    @app.route('/dashboard/logs')
+    def dashboard_logs():
+        return send_from_directory(STATIC_DIR, 'logs.html')
+
     @app.route('/api/monitors', methods=['GET', 'POST'])
     def api_monitors():
         if request.method == 'GET':
@@ -177,6 +203,25 @@ def create_app(manager: TaskManager | None = None) -> Flask:
             return jsonify({'error': f'upstream request failed: {detail}'}), exc.code
         except URLError as exc:
             return jsonify({'error': f'upstream request failed: {exc.reason}'}), 502
+
+    @app.route('/api/logs/latest', methods=['GET'])
+    def api_logs_latest():
+        try:
+            lines = _parse_lines_arg(request.args.get('lines'), default=50)
+        except ValueError as exc:
+            return jsonify({'error': str(exc)}), 400
+
+        try:
+            content = _read_latest_log_lines(DEFAULT_LOG_FILE, lines)
+        except OSError as exc:
+            return jsonify({'error': f'failed to read log file: {exc}'}), 500
+
+        return jsonify({
+            'log_file': DEFAULT_LOG_FILE.name,
+            'requested_lines': lines,
+            'line_count': len(content),
+            'lines': content,
+        })
 
     @app.route('/api/monitors/<mid>', methods=['DELETE'])
     def api_cancel(mid):
