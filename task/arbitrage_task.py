@@ -7,6 +7,7 @@ import json
 from core import logger
 from monitor import build_monitor, BaseMonitor
 
+_RESULT_PATH = "../logs/results.csv"
 
 class MonitorTask:
     def __init__(self, id: str, cfg: dict, queue: Queue):
@@ -85,8 +86,22 @@ class ArbitrageTask:
 
     def stop(self):
         self._stop.set()
+        self.status = 'stopped'
         if self.thread:
             self.thread.join(timeout=1)
+        self._save_results()
+
+    def _save_results(self):
+        """Save results to a CSV file for later analysis."""
+        try:
+            with open(_RESULT_PATH, 'a') as f:
+                f.write(f"{self.id},{self.cfg.get('type1')}-{self.cfg.get('market1')},{self.cfg.get('type2')}-{self.cfg.get('market2')},"
+                        f"{self.arb_cnt},{self.max_arb_cnt},"
+                        f"{self.max_arb_ratio},{self.max_arb_quantity},"
+                        f"{round(self.cumulative_profit, 6)},{round(self.cumulative_risk_exposure, 6)},"
+                        f"{round(self.cumulative_fee, 6)},{self.status}\n")
+        except Exception as e:
+            logger.error(f"Error saving results for task {self.id}: {e}")
 
     def _build_monitor(self, mtype: str, market: str):
         """Build a monitor instance using builder functions."""
@@ -191,6 +206,7 @@ class ArbitrageTask:
                     }
                     try:
                         self.queue.put_nowait(json.dumps(final_result))
+                        self._save_results()
                     except Exception:
                         pass
                     logger.info(f"Reached max arbitrage count {self.max_arb_cnt}, stopping task {self.id}")
@@ -280,6 +296,7 @@ class ArbitrageTask:
 
             except Exception as e:
                 self.status = 'aborted'
+                self._save_results()
                 logger.error(f"Error in arbitrage task: {e}")
 
             time.sleep(freq)
