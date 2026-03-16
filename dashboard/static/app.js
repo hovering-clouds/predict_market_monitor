@@ -184,8 +184,12 @@ function subscribeToMonitor(id, card, isArbitrage) {
               <span> | 累计敞口: ${cumulativeExposureText}</span>
               <span> | 累计交易费: ${cumulativeFeeText}</span>
               <span> | 已套利次数: ${arbCountText}</span>
-              <span> | 市场1剩余/已用: ${market1RemainingText}/${market1ConsumedText}</span>
-              <span> | 市场2剩余/已用: ${market2RemainingText}/${market2ConsumedText}</span>
+            </div>
+            <div style="margin-top:6px">
+              <span>市场1剩余/已用: ${market1RemainingText}/${market1ConsumedText}</span>
+            </div>
+            <div style="margin-top:4px">
+              <span>市场2剩余/已用: ${market2RemainingText}/${market2ConsumedText}</span>
             </div>
           `;
           arbResultDiv.style.display = 'block';
