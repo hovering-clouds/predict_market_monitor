@@ -144,45 +144,18 @@ class ArbitrageTask:
         """Build a monitor instance using builder functions."""
         return build_monitor(monitor_type=mtype, market_type="manual", slug=market)
 
-    def _execute_order_leg(
-        self,
-        monitor: BaseMonitor,
-        price: float,
-        size: float,
-        side: str,
-        yes_or_no: bool,
-    ) -> Tuple[float, float, float]:
-        """Execute one market leg and always attempt to cancel leftovers."""
-        default_result = (0.0, 0.0, 0.0)
-        if not monitor:
-            return default_result
-
-        try:
-            order_result = monitor.place_limit_order_fak(price, size, side, yes_or_no)
-            if not order_result:
-                return default_result
-            qty, volume, fee = order_result
-            return float(qty or 0.0), float(volume or 0.0), float(fee or 0.0)
-        except Exception as e:
-            logger.error(f"Error placing order leg for task {self.id}: {e}")
-            return default_result
-        finally:
-            try:
-                monitor.cancel_all_open_orders()
-            except Exception as e:
-                logger.error(f"Error canceling open orders for task {self.id}: {e}")
-
     def _execute_parallel_order_legs(
         self,
         leg1: Tuple[BaseMonitor, float, float, str, bool],
         leg2: Tuple[BaseMonitor, float, float, str, bool],
     ) -> Tuple[Tuple[float, float, float], Tuple[float, float, float]]:
         """Run both market legs concurrently to reduce sequential blocking time."""
-        results = [(0.0, 0.0, 0.0), (0.0, 0.0, 0.0)]
+        results: list[Optional[Tuple[float, float, float]]] = [None, None]
 
         def _runner(index: int, leg: Tuple[BaseMonitor, float, float, str, bool]):
             monitor, price, size, side, yes_or_no = leg
-            results[index] = self._execute_order_leg(monitor, price, size, side, yes_or_no)
+            leg_result = monitor.place_limit_order_fak(price=price, size=size, side=side, yes_or_no=yes_or_no)
+            results[index] = leg_result
 
         thread1 = threading.Thread(target=_runner, args=(0, leg1), daemon=True)
         thread2 = threading.Thread(target=_runner, args=(1, leg2), daemon=True)
@@ -190,6 +163,9 @@ class ArbitrageTask:
         thread2.start()
         thread1.join()
         thread2.join()
+
+        if results[0] is None or results[1] is None:
+            raise RuntimeError("Order placement failed in at least one market leg")
 
         return results[0], results[1]
 
@@ -333,16 +309,28 @@ class ArbitrageTask:
                         f"market2={self._serialize_for_csv(self.market2_remaining_budget)}"
                     )
                     break
+                
+                if monitor1 is None or monitor2 is None:
+                    logger.error(f"One or both monitors failed to initialize for task {self.id}, aborting.")
+                    self.status = 'aborted'
+                    self._save_results()
+                    break
 
                 # Get orderbooks from both markets
-                ob1 = monitor1.get_yes_orderbook() if monitor1 else None
-                ob2 = monitor2.get_yes_orderbook() if monitor2 else None
+                ob1 = monitor1.get_yes_orderbook()
+                ob2 = monitor2.get_yes_orderbook()
                 
+                if ob1 is None or ob2 is None:
+                    logger.warning(f"Failed to fetch orderbooks for task {self.id}, aborting.")
+                    self.status = 'aborted'
+                    self._save_results()
+                    break
+
                 # Extract best bid/ask
-                market1_bid = ob1.bids[0] if ob1 and ob1.bids else None
-                market1_ask = ob1.asks[0] if ob1 and ob1.asks else None
-                market2_bid = ob2.bids[0] if ob2 and ob2.bids else None
-                market2_ask = ob2.asks[0] if ob2 and ob2.asks else None
+                market1_bid = ob1.bids[0] if ob1.bids else None
+                market1_ask = ob1.asks[0] if ob1.asks else None
+                market2_bid = ob2.bids[0] if ob2.bids else None
+                market2_ask = ob2.asks[0] if ob2.asks else None
 
                 result = None
                 arb_spread = None
