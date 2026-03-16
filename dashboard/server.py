@@ -133,8 +133,8 @@ def create_app(manager: TaskManager | None = None) -> Flask:
         try:
             market1_budget = float(data.get('market1_budget'))
             market2_budget = float(data.get('market2_budget'))
-            min_order_quantity = float(data.get('min_order_quantity', 0.0) or 0.0)
-            min_order_amount = float(data.get('min_order_amount', 0.0) or 0.0)
+            min_order_quantity = float(data.get('min_order_quantity', 5.0) or 5.0)
+            min_order_amount = float(data.get('min_order_amount', 1.0) or 1.0)
         except (TypeError, ValueError):
             return jsonify({'error': 'budget and minimum order fields must be valid numbers'}), 400
 

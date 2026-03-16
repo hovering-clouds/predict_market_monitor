@@ -74,8 +74,8 @@ class ArbitrageTask:
         self.thread: Optional[threading.Thread] = None
         self.max_arb_ratio = float(cfg.get('max_arb_ratio', 1.0))  # 默认为100%
         self.max_arb_quantity = float(cfg.get('max_arb_quantity', float('inf')))  # 默认为无限制
-        self.min_order_quantity = self._parse_non_negative_float(cfg.get('min_order_quantity', 0.0))
-        self.min_order_amount = self._parse_non_negative_float(cfg.get('min_order_amount', 0.0))
+        self.min_order_quantity = self._parse_non_negative_float(cfg.get('min_order_quantity', 5.0))
+        self.min_order_amount = self._parse_non_negative_float(cfg.get('min_order_amount', 1.0))
         self.market1_budget = self._parse_budget(cfg.get('market1_budget'))
         self.market2_budget = self._parse_budget(cfg.get('market2_budget'))
         self.market1_remaining_budget = self.market1_budget
