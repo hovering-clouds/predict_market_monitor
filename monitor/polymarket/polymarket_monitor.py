@@ -104,6 +104,8 @@ class PolymarketMonitor(BaseMonitor):
 
         order_id = response.get("orderID")
         taking_amount = response.get("takingAmount")
+        if taking_amount == '': # API returns empty string when no fill
+            taking_amount = '0.0'
         if taking_amount and float(taking_amount) < size:
             logger.info(f"Order {order_id} not fully filled, canceling remaining...")
             try:
@@ -118,6 +120,9 @@ class PolymarketMonitor(BaseMonitor):
         
         try:
             order = self.client.get_order(order_id)
+            if not order:
+                logger.error(f"Order {order_id} not found after placement.")
+                return None
             matched_size = float(order.get("size_matched", 0))
             matched_amount = 0.0
             total_fee = 0.0
