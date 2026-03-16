@@ -8,7 +8,7 @@ import math
 from core import logger
 from monitor import build_monitor, BaseMonitor
 
-_RESULT_PATH = "../logs/results.csv"
+_RESULT_PATH = "./logs/results.csv"
 
 class MonitorTask:
     def __init__(self, id: str, cfg: dict, queue: Queue):
