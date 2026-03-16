@@ -7,6 +7,10 @@ const eventLookupStatus = document.getElementById('eventLookupStatus');
 const eventResultTitle = document.getElementById('eventResultTitle');
 const eventResultMeta = document.getElementById('eventResultMeta');
 const eventMarketsBody = document.getElementById('eventMarketsBody');
+const dashboardAuth = window.dashboardAuth || {
+  fetchWithAuth: fetch,
+  isAuthRequired: () => false,
+};
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -75,7 +79,7 @@ eventQueryForm.addEventListener('submit', async (event) => {
 
   try {
     const params = new URLSearchParams({platform, identifier});
-    const response = await fetch(`/api/event-markets?${params.toString()}`);
+    const response = await dashboardAuth.fetchWithAuth(`/api/event-markets?${params.toString()}`);
     const payload = await response.json();
 
     if (!response.ok) {
@@ -90,7 +94,9 @@ eventQueryForm.addEventListener('submit', async (event) => {
     eventResultTitle.textContent = '查询失败';
     eventResultMeta.textContent = '请检查平台与事件标识符是否正确。';
     renderEmptyRow('未能获取 market 列表。');
-    setStatus(error.message || '查询失败', 'error');
+    if (!dashboardAuth.isAuthRequired(error)) {
+      setStatus(error.message || '查询失败', 'error');
+    }
   } finally {
     eventQueryButton.disabled = false;
   }

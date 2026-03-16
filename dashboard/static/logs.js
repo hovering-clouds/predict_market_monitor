@@ -7,6 +7,10 @@ const logStatusBanner = document.getElementById('logStatusBanner');
 const logViewer = document.getElementById('logViewer');
 const logViewerTitle = document.getElementById('logViewerTitle');
 const logViewerMeta = document.getElementById('logViewerMeta');
+const dashboardAuth = window.dashboardAuth || {
+  fetchWithAuth: fetch,
+  isAuthRequired: () => false,
+};
 
 let logLineCount = 50;
 let refreshSeconds = 2;
@@ -64,7 +68,7 @@ async function fetchLatestLogs(showLoadingStatus = false) {
 
   try {
     const params = new URLSearchParams({lines: String(logLineCount)});
-    const response = await fetch(`/api/logs/latest?${params.toString()}`);
+    const response = await dashboardAuth.fetchWithAuth(`/api/logs/latest?${params.toString()}`);
     const payload = await response.json();
 
     if (!response.ok) {
@@ -81,7 +85,9 @@ async function fetchLatestLogs(showLoadingStatus = false) {
     logViewerMeta.textContent = `显示最新 ${payload.line_count} 行 / 请求 ${payload.requested_lines} 行 / 更新时间 ${new Date().toLocaleTimeString()}`;
     setLogStatus(autoRefreshEnabled ? '自动刷新中' : '已暂停自动刷新', 'success');
   } catch (error) {
-    setLogStatus(error.message || '日志加载失败', 'error');
+    if (!dashboardAuth.isAuthRequired(error)) {
+      setLogStatus(error.message || '日志加载失败', 'error');
+    }
   }
 }
 

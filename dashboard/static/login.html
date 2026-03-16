@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Dashboard 登录</title>
+    <link rel="stylesheet" href="/static/style.css">
+  </head>
+  <body>
+    <main class="auth-shell">
+      <section class="auth-card panel">
+        <h1>Dashboard 登录</h1>
+        <p class="page-subtitle">请输入访问密码后继续。</p>
+        <form id="loginForm" class="auth-form">
+          <label>密码
+            <input id="passwordInput" type="password" autocomplete="current-password" placeholder="请输入访问密码" required />
+          </label>
+          <button id="loginButton" type="submit">登录</button>
+        </form>
+        <div id="loginStatus" class="status-banner" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <script src="/static/login.js"></script>
+  </body>
+</html>

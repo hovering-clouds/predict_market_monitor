@@ -18,6 +18,8 @@ The server provides:
 from __future__ import annotations
 
 from collections import deque
+import os
+import secrets
 import threading
 import time
 import uuid
@@ -26,11 +28,12 @@ from queue import Queue, Empty
 from typing import Dict, Any, Optional
 from importlib import import_module
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 from urllib.request import Request, urlopen
+from core.config import config
 from core.logger import logger
 
-from flask import Flask, request, jsonify, send_from_directory, Response, abort
+from flask import Flask, request, jsonify, send_from_directory, Response, abort, redirect, session, url_for
 
 # Import arbitrage utilities
 import sys
@@ -42,6 +45,71 @@ from task import TaskManager
 STATIC_DIR = 'static'
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_LOG_FILE = (PROJECT_ROOT / 'logs' / 'arbitrage.log').resolve()
+AUTH_SESSION_KEY = 'dashboard_authenticated'
+DEFAULT_DASHBOARD_SECRET_KEY = 'change-this-dashboard-secret-key'
+
+
+def _get_dashboard_password() -> str:
+    password = os.environ.get('DASHBOARD_PASSWORD')
+    if password is not None:
+        return password
+
+    configured_password = config.get('dashboard.password', '')
+    return '' if configured_password is None else str(configured_password)
+
+
+def _get_dashboard_secret_key() -> str:
+    secret_key = os.environ.get('DASHBOARD_SECRET_KEY')
+    if secret_key:
+        return secret_key
+
+    configured_secret = config.get('dashboard.secret_key', '')
+    if configured_secret:
+        return str(configured_secret)
+    return DEFAULT_DASHBOARD_SECRET_KEY
+
+
+def _is_dashboard_auth_enabled() -> bool:
+    return _get_dashboard_password() != ''
+
+
+def _is_dashboard_authenticated() -> bool:
+    return bool(session.get(AUTH_SESSION_KEY))
+
+
+def _is_protected_path(path: str) -> bool:
+    return path == '/' or path.startswith('/dashboard') or path.startswith('/api') or path.startswith('/stream')
+
+
+def _is_public_path(path: str) -> bool:
+    return path.startswith('/static/') or path in {
+        '/dashboard/login',
+        '/dashboard/logout',
+        '/api/auth/login',
+    }
+
+
+def _current_request_target() -> str:
+    query = request.query_string.decode('utf-8') if request.query_string else ''
+    return f'{request.path}?{query}' if query else request.path
+
+
+def _safe_redirect_target(target: str | None) -> str:
+    if not target:
+        return '/dashboard'
+
+    parsed = urlsplit(target)
+    if parsed.scheme or parsed.netloc:
+        return '/dashboard'
+
+    path = parsed.path or '/dashboard'
+    if not path.startswith('/') or path.startswith('//'):
+        return '/dashboard'
+    if path in {'/dashboard/login', '/dashboard/logout'} or path.startswith('/api/auth'):
+        return '/dashboard'
+
+    query = f'?{parsed.query}' if parsed.query else ''
+    return f'{path}{query}'
 
 
 def _parse_lines_arg(lines_raw: str | None, default: int = 50) -> int:
@@ -118,11 +186,42 @@ def _build_event_market_response(platform: str, identifier: str) -> dict[str, An
 
 def create_app(manager: TaskManager | None = None) -> Flask:
     app = Flask(__name__, static_folder=STATIC_DIR, static_url_path='/static')
+    app.secret_key = _get_dashboard_secret_key()
+    app.config.update(
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SAMESITE='Lax',
+    )
     manager = manager or TaskManager()
+
+    @app.before_request
+    def enforce_dashboard_auth():
+        path = request.path or ''
+        if not _is_dashboard_auth_enabled():
+            return None
+        if not _is_protected_path(path) or _is_public_path(path):
+            return None
+        if _is_dashboard_authenticated():
+            return None
+
+        if path.startswith('/api') or path.startswith('/stream'):
+            return jsonify({'error': 'unauthorized'}), 401
+
+        return redirect(url_for('dashboard_login', next=_current_request_target()))
 
     @app.route('/')
     def root():
         return send_from_directory(STATIC_DIR, 'index.html')
+
+    @app.route('/dashboard/login')
+    def dashboard_login():
+        if not _is_dashboard_auth_enabled() or _is_dashboard_authenticated():
+            return redirect(_safe_redirect_target(request.args.get('next')))
+        return send_from_directory(STATIC_DIR, 'login.html')
+
+    @app.route('/dashboard/logout')
+    def dashboard_logout():
+        session.pop(AUTH_SESSION_KEY, None)
+        return redirect(url_for('dashboard_login'))
 
     @app.route('/dashboard')
     def dashboard_index():
@@ -135,6 +234,22 @@ def create_app(manager: TaskManager | None = None) -> Flask:
     @app.route('/dashboard/logs')
     def dashboard_logs():
         return send_from_directory(STATIC_DIR, 'logs.html')
+
+    @app.route('/api/auth/login', methods=['POST'])
+    def api_auth_login():
+        data = request.get_json(silent=True) or {}
+        redirect_to = _safe_redirect_target(data.get('next'))
+
+        if not _is_dashboard_auth_enabled():
+            session[AUTH_SESSION_KEY] = True
+            return jsonify({'authenticated': True, 'redirect_to': redirect_to})
+
+        provided_password = data.get('password', '')
+        if not isinstance(provided_password, str) or not secrets.compare_digest(provided_password, _get_dashboard_password()):
+            return jsonify({'error': '密码错误'}), 401
+
+        session[AUTH_SESSION_KEY] = True
+        return jsonify({'authenticated': True, 'redirect_to': redirect_to})
 
     @app.route('/api/monitors', methods=['GET', 'POST'])
     def api_monitors():

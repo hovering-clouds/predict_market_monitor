@@ -1,6 +1,11 @@
 const monitorsDiv = document.getElementById('monitors');
 const form = document.getElementById('createForm');
 const arbitrageForm = document.getElementById('arbitrageForm');
+const dashboardAuth = window.dashboardAuth || {
+  fetchWithAuth: fetch,
+  isAuthRequired: () => false,
+  redirectToLogin: () => { window.location.href = '/dashboard/login'; },
+};
 const TERMINAL_STATUSES = new Set(['finished', 'aborted', 'stopped']);
 
 function normalizeStatus(rawStatus, fallback = 'running') {
@@ -26,7 +31,7 @@ function setStatus(statusSpan, status) {
 
 async function fetchLatestMonitorStatus(id) {
   try {
-    const res = await fetch('/api/monitors');
+    const res = await dashboardAuth.fetchWithAuth('/api/monitors');
     if (!res.ok) {
       return null;
     }
@@ -36,16 +41,30 @@ async function fetchLatestMonitorStatus(id) {
       return null;
     }
     return normalizeStatus(monitor.status, null);
-  } catch (_) {
+  } catch (error) {
+    if (dashboardAuth.isAuthRequired(error)) {
+      return null;
+    }
     return null;
   }
 }
 
 async function listMonitors() {
-  const res = await fetch('/api/monitors');
-  const data = await res.json();
-  monitorsDiv.innerHTML = '';
-  data.forEach(m => addMonitorCard(m));
+  try {
+    const res = await dashboardAuth.fetchWithAuth('/api/monitors');
+    if (!res.ok) {
+      throw new Error('加载监控列表失败');
+    }
+
+    const data = await res.json();
+    monitorsDiv.innerHTML = '';
+    data.forEach(m => addMonitorCard(m));
+  } catch (error) {
+    if (dashboardAuth.isAuthRequired(error)) {
+      return;
+    }
+    monitorsDiv.innerHTML = '<div class="card">加载监控列表失败，请刷新页面重试。</div>';
+  }
 }
 
 function addMonitorCard(m) {
@@ -116,8 +135,16 @@ function addMonitorCard(m) {
 
   const cancelBtn = card.querySelector('.cancel');
   cancelBtn.onclick = async () => {
-    await fetch(`/api/monitors/${m.id}`, {method: 'DELETE'});
-    removeMonitorCard(m.id);
+    try {
+      const res = await dashboardAuth.fetchWithAuth(`/api/monitors/${m.id}`, {method: 'DELETE'});
+      if (res.ok) {
+        removeMonitorCard(m.id);
+      }
+    } catch (error) {
+      if (!dashboardAuth.isAuthRequired(error)) {
+        alert('取消监控失败');
+      }
+    }
   };
 
   monitorsDiv.appendChild(card);
@@ -275,18 +302,24 @@ form.onsubmit = async (ev) => {
   const market = document.getElementById('market').value;
   const freq = Number(document.getElementById('freq').value) || 5;
 
-  const res = await fetch('/api/monitors', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({type, market, freq})
-  });
+  try {
+    const res = await dashboardAuth.fetchWithAuth('/api/monitors', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({type, market, freq})
+    });
 
-  if (res.ok) {
-    const data = await res.json();
-    addMonitorCard(data);
-    form.reset();
-  } else {
-    alert('创建失败');
+    if (res.ok) {
+      const data = await res.json();
+      addMonitorCard(data);
+      form.reset();
+    } else {
+      alert('创建失败');
+    }
+  } catch (error) {
+    if (!dashboardAuth.isAuthRequired(error)) {
+      alert('创建失败');
+    }
   }
 }
 
@@ -319,30 +352,36 @@ arbitrageForm.onsubmit = async (ev) => {
     return;
   }
 
-  const res = await fetch('/api/arbitrage', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({
-      type1, market1,
-      type2, market2,
-      max_arb_ratio,
-      max_arb_quantity,
-      min_order_quantity,
-      min_order_amount,
-      market1_budget,
-      market2_budget,
-      freq,
-      min_spread
-    })
-  });
+  try {
+    const res = await dashboardAuth.fetchWithAuth('/api/arbitrage', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        type1, market1,
+        type2, market2,
+        max_arb_ratio,
+        max_arb_quantity,
+        min_order_quantity,
+        min_order_amount,
+        market1_budget,
+        market2_budget,
+        freq,
+        min_spread
+      })
+    });
 
-  if (res.ok) {
-    const data = await res.json();
-    addMonitorCard(data);
-    arbitrageForm.reset();
-  } else {
-    const error = await res.json();
-    alert('创建套利监控失败: ' + error.error);
+    if (res.ok) {
+      const data = await res.json();
+      addMonitorCard(data);
+      arbitrageForm.reset();
+    } else {
+      const error = await res.json();
+      alert('创建套利监控失败: ' + error.error);
+    }
+  } catch (error) {
+    if (!dashboardAuth.isAuthRequired(error)) {
+      alert('创建套利监控失败');
+    }
   }
 }
 

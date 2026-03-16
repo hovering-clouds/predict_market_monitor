@@ -5,6 +5,7 @@ body{font-family: system-ui, -apple-system, Roboto, "Helvetica Neue", Arial; bac
 .page-nav{display:flex;gap:8px;flex-wrap:wrap}
 .nav-link{display:inline-flex;align-items:center;padding:8px 12px;border:1px solid #d0d7de;border-radius:999px;background:#fff;color:#24292f;text-decoration:none}
 .nav-link.active{background:#24292f;border-color:#24292f;color:#fff}
+.nav-link.logout-link{border-color:#f1b4b0;color:#a40e26}
 .panel{background:#fff;border:1px solid #e1e4e8;padding:12px;margin-bottom:12px;border-radius:6px}
 .panel h2{margin-top:0}
 .panel h3{margin-top:12px;margin-bottom:8px;font-size:14px;color:#555}
@@ -49,10 +50,16 @@ button.secondary{background:#fff;color:#24292f}
 .log-line.error .log-line-text{color:#fecaca}
 .log-line.warn .log-line-text{color:#fde68a}
 .log-empty{color:#94a3b8}
+.auth-shell{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.auth-card{width:min(420px,100%);margin:0}
+.auth-form{display:flex;flex-direction:column;gap:12px;margin-top:16px}
+.auth-form label{margin:0}
+.auth-form input{display:block;width:100%;margin:6px 0 0;padding:10px 12px;box-sizing:border-box}
 
 @media (max-width: 640px){
 	.container{margin:12px auto;padding:8px}
 	.panel{padding:10px}
 	.inline-form{align-items:stretch}
 	button{width:100%}
+	.auth-shell{padding:12px}
 }
