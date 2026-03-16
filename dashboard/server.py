@@ -126,9 +126,18 @@ def create_app(manager: TaskManager | None = None) -> Flask:
     def api_arbitrage():
         """Create an arbitrage monitoring task."""
         data = request.get_json() or {}
-        required_fields = ['type1', 'market1', 'type2', 'market2', 'freq', 'min_spread']
+        required_fields = ['type1', 'market1', 'type2', 'market2', 'freq', 'min_spread', 'market1_budget', 'market2_budget']
         if not all(field in data for field in required_fields):
             return jsonify({'error': 'missing fields: ' + ', '.join(required_fields)}), 400
+
+        try:
+            market1_budget = float(data.get('market1_budget'))
+            market2_budget = float(data.get('market2_budget'))
+        except (TypeError, ValueError):
+            return jsonify({'error': 'market1_budget and market2_budget must be valid numbers'}), 400
+
+        if market1_budget <= 0 or market2_budget <= 0:
+            return jsonify({'error': 'market1_budget and market2_budget must be greater than 0'}), 400
         
         cfg = {
             'type1': data.get('type1'),
@@ -137,7 +146,8 @@ def create_app(manager: TaskManager | None = None) -> Flask:
             'market2': data.get('market2'),
             'max_arb_ratio': float(data.get('max_arb_ratio', 1.0)),
             'max_arb_quantity': float(data.get('max_arb_quantity', float('inf'))) if data.get('max_arb_quantity') else float('inf'),
-            'max_arb_cnt': int(data.get('max_arb_cnt', 0) or 0),
+            'market1_budget': market1_budget,
+            'market2_budget': market2_budget,
             'freq': float(data.get('freq', 5)),
             'min_spread': float(data.get('min_spread', 0.01))
         }

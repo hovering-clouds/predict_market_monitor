@@ -15,6 +15,18 @@ function addMonitorCard(m) {
   card.id = `mon-${m.id}`;
   const initialStatus = typeof m.status === 'string' ? m.status : 'running';
   const initialArbCount = Number.isFinite(Number(m.arb_cnt)) ? Number(m.arb_cnt) : 0;
+  const initialMarket1Budget = asNumber(m.market1_budget);
+  const initialMarket2Budget = asNumber(m.market2_budget);
+  const initialMarket1Remaining = asNumber(m.market1_remaining_budget);
+  const initialMarket2Remaining = asNumber(m.market2_remaining_budget);
+  const initialMarket1Consumed = asNumber(m.market1_consumed_budget);
+  const initialMarket2Consumed = asNumber(m.market2_consumed_budget);
+  const market1BudgetText = initialMarket1Budget === null ? '无限制' : initialMarket1Budget.toFixed(6);
+  const market2BudgetText = initialMarket2Budget === null ? '无限制' : initialMarket2Budget.toFixed(6);
+  const market1RemainingText = initialMarket1Remaining === null ? market1BudgetText : initialMarket1Remaining.toFixed(6);
+  const market2RemainingText = initialMarket2Remaining === null ? market2BudgetText : initialMarket2Remaining.toFixed(6);
+  const market1ConsumedText = initialMarket1Consumed === null ? '0.000000' : initialMarket1Consumed.toFixed(6);
+  const market2ConsumedText = initialMarket2Consumed === null ? '0.000000' : initialMarket2Consumed.toFixed(6);
   
   let contentHtml;
   
@@ -31,7 +43,12 @@ function addMonitorCard(m) {
         <div><strong>最小价差:</strong> ${m.min_spread}</div>
         <div><strong>最大套利比例:</strong> ${(m.max_arb_ratio * 100).toFixed(1)}%</div>
         <div><strong>最大套利数量:</strong> ${isFinite(m.max_arb_quantity) ? m.max_arb_quantity : '无限制'}</div>
-        <div><strong>最大套利次数:</strong> ${m.max_arb_cnt > 0 ? m.max_arb_cnt : '无限制'}</div>
+        <div><strong>市场1预算:</strong> <span class="market1-budget">${market1BudgetText}</span></div>
+        <div><strong>市场2预算:</strong> <span class="market2-budget">${market2BudgetText}</span></div>
+        <div><strong>市场1剩余预算:</strong> <span class="market1-remaining-budget">${market1RemainingText}</span></div>
+        <div><strong>市场2剩余预算:</strong> <span class="market2-remaining-budget">${market2RemainingText}</span></div>
+        <div><strong>市场1已用预算:</strong> <span class="market1-consumed-budget">${market1ConsumedText}</span></div>
+        <div><strong>市场2已用预算:</strong> <span class="market2-consumed-budget">${market2ConsumedText}</span></div>
         <div><strong>已套利次数:</strong> <span class="arb-cnt">${initialArbCount}</span></div>
       </div>
       <div class="ob" style="margin-top:8px">
@@ -85,6 +102,12 @@ function subscribeToMonitor(id, card, isArbitrage) {
   const obDiv = card.querySelector('.ob');
   const statusSpan = card.querySelector('.status');
   const arbCountSpan = card.querySelector('.arb-cnt');
+  const market1BudgetSpan = card.querySelector('.market1-budget');
+  const market2BudgetSpan = card.querySelector('.market2-budget');
+  const market1RemainingSpan = card.querySelector('.market1-remaining-budget');
+  const market2RemainingSpan = card.querySelector('.market2-remaining-budget');
+  const market1ConsumedSpan = card.querySelector('.market1-consumed-budget');
+  const market2ConsumedSpan = card.querySelector('.market2-consumed-budget');
   const arbResultDiv = card.querySelector(`#arb-result-${id}`);
 
   evt.onmessage = (e) => {
@@ -95,9 +118,32 @@ function subscribeToMonitor(id, card, isArbitrage) {
       
       if (isArbitrage) {
         const arbCount = asNumber(d.arb_cnt);
-        const maxArbCount = asNumber(d.max_arb_cnt);
+        const market1Budget = asNumber(d.market1_budget);
+        const market2Budget = asNumber(d.market2_budget);
+        const market1Remaining = asNumber(d.market1_remaining_budget);
+        const market2Remaining = asNumber(d.market2_remaining_budget);
+        const market1Consumed = asNumber(d.market1_consumed_budget);
+        const market2Consumed = asNumber(d.market2_consumed_budget);
         if (arbCountSpan && arbCount !== null) {
           arbCountSpan.textContent = String(Math.max(0, Math.floor(arbCount)));
+        }
+        if (market1BudgetSpan) {
+          market1BudgetSpan.textContent = market1Budget === null ? '无限制' : market1Budget.toFixed(6);
+        }
+        if (market2BudgetSpan) {
+          market2BudgetSpan.textContent = market2Budget === null ? '无限制' : market2Budget.toFixed(6);
+        }
+        if (market1RemainingSpan) {
+          market1RemainingSpan.textContent = market1Remaining === null ? '-' : market1Remaining.toFixed(6);
+        }
+        if (market2RemainingSpan) {
+          market2RemainingSpan.textContent = market2Remaining === null ? '-' : market2Remaining.toFixed(6);
+        }
+        if (market1ConsumedSpan) {
+          market1ConsumedSpan.textContent = market1Consumed === null ? '-' : market1Consumed.toFixed(6);
+        }
+        if (market2ConsumedSpan) {
+          market2ConsumedSpan.textContent = market2Consumed === null ? '-' : market2Consumed.toFixed(6);
         }
 
         const market1Ask = d.market1_ask && typeof d.market1_ask === 'object' ? d.market1_ask : null;
@@ -126,7 +172,10 @@ function subscribeToMonitor(id, card, isArbitrage) {
           const cumulativeExposureText = formatFixed(d.cumulative_risk_exposure, 6, '0.000000');
           const cumulativeFeeText = formatFixed(d.cumulative_fee, 6, '0.000000');
           const arbCountText = arbCount === null ? '-' : String(Math.max(0, Math.floor(arbCount)));
-          const maxArbCountText = maxArbCount !== null && maxArbCount > 0 ? String(Math.floor(maxArbCount)) : '无限制';
+          const market1RemainingText = market1Remaining === null ? '-' : market1Remaining.toFixed(6);
+          const market2RemainingText = market2Remaining === null ? '-' : market2Remaining.toFixed(6);
+          const market1ConsumedText = market1Consumed === null ? '-' : market1Consumed.toFixed(6);
+          const market2ConsumedText = market2Consumed === null ? '-' : market2Consumed.toFixed(6);
 
           arbResultDiv.innerHTML = `
             <div>${spreadDisplay} | <span>可套利数量: ${quantityText}</span></div>
@@ -134,7 +183,9 @@ function subscribeToMonitor(id, card, isArbitrage) {
               <span>累计获利: ${cumulativeProfitText}</span>
               <span> | 累计敞口: ${cumulativeExposureText}</span>
               <span> | 累计交易费: ${cumulativeFeeText}</span>
-              <span> | 已套利次数: ${arbCountText}/${maxArbCountText}</span>
+              <span> | 已套利次数: ${arbCountText}</span>
+              <span> | 市场1剩余/已用: ${market1RemainingText}/${market1ConsumedText}</span>
+              <span> | 市场2剩余/已用: ${market2RemainingText}/${market2ConsumedText}</span>
             </div>
           `;
           arbResultDiv.style.display = 'block';
@@ -197,8 +248,13 @@ arbitrageForm.onsubmit = async (ev) => {
   const max_arb_ratio = Number(document.getElementById('arb-max-ratio').value) || 1.0;
   const max_arb_quantity_input = Number(document.getElementById('arb-max-quantity').value);
   const max_arb_quantity = max_arb_quantity_input > 0 ? max_arb_quantity_input : null;
-  const max_arb_cnt_input = Number(document.getElementById('arb-max-cnt').value);
-  const max_arb_cnt = max_arb_cnt_input > 0 ? Math.floor(max_arb_cnt_input) : 0;
+  const market1_budget = Number(document.getElementById('arb-market1-budget').value);
+  const market2_budget = Number(document.getElementById('arb-market2-budget').value);
+
+  if (!(market1_budget > 0) || !(market2_budget > 0)) {
+    alert('市场1和市场2的预分配金额必须大于0');
+    return;
+  }
 
   const res = await fetch('/api/arbitrage', {
     method: 'POST',
@@ -208,7 +264,8 @@ arbitrageForm.onsubmit = async (ev) => {
       type2, market2,
       max_arb_ratio,
       max_arb_quantity,
-      max_arb_cnt,
+      market1_budget,
+      market2_budget,
       freq,
       min_spread
     })
