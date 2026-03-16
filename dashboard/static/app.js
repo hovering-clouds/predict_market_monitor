@@ -1,6 +1,45 @@
 const monitorsDiv = document.getElementById('monitors');
 const form = document.getElementById('createForm');
 const arbitrageForm = document.getElementById('arbitrageForm');
+const TERMINAL_STATUSES = new Set(['finished', 'aborted', 'stopped']);
+
+function normalizeStatus(rawStatus, fallback = 'running') {
+  if (typeof rawStatus !== 'string') {
+    return fallback;
+  }
+  const normalized = rawStatus.trim().toLowerCase();
+  return normalized || fallback;
+}
+
+function isTerminalStatus(status) {
+  return TERMINAL_STATUSES.has(normalizeStatus(status, ''));
+}
+
+function setStatus(statusSpan, status) {
+  if (!statusSpan) {
+    return;
+  }
+  const normalized = normalizeStatus(status, 'running');
+  statusSpan.textContent = normalized;
+  statusSpan.dataset.status = normalized;
+}
+
+async function fetchLatestMonitorStatus(id) {
+  try {
+    const res = await fetch('/api/monitors');
+    if (!res.ok) {
+      return null;
+    }
+    const data = await res.json();
+    const monitor = data.find(m => m.id === id);
+    if (!monitor) {
+      return null;
+    }
+    return normalizeStatus(monitor.status, null);
+  } catch (_) {
+    return null;
+  }
+}
 
 async function listMonitors() {
   const res = await fetch('/api/monitors');
@@ -13,7 +52,7 @@ function addMonitorCard(m) {
   const card = document.createElement('div');
   card.className = m.arbitrage_pair ? 'card arbitrage-card' : 'card';
   card.id = `mon-${m.id}`;
-  const initialStatus = typeof m.status === 'string' ? m.status : 'running';
+  const initialStatus = normalizeStatus(m.status, 'running');
   const initialArbCount = Number.isFinite(Number(m.arb_cnt)) ? Number(m.arb_cnt) : 0;
   const initialMarket1Budget = asNumber(m.market1_budget);
   const initialMarket2Budget = asNumber(m.market2_budget);
@@ -72,6 +111,8 @@ function addMonitorCard(m) {
   `;
   
   card.innerHTML = contentHtml;
+  const statusSpan = card.querySelector('.status');
+  setStatus(statusSpan, initialStatus);
 
   const cancelBtn = card.querySelector('.cancel');
   cancelBtn.onclick = async () => {
@@ -80,7 +121,9 @@ function addMonitorCard(m) {
   };
 
   monitorsDiv.appendChild(card);
-  subscribeToMonitor(m.id, card, m.arbitrage_pair || false);
+  if (!isTerminalStatus(initialStatus)) {
+    subscribeToMonitor(m.id, card, m.arbitrage_pair || false);
+  }
 }
 
 function removeMonitorCard(id) {
@@ -114,8 +157,8 @@ function subscribeToMonitor(id, card, isArbitrage) {
   evt.onmessage = (e) => {
     try {
       const d = JSON.parse(e.data);
-      const status = typeof d.status === 'string' ? d.status : 'running';
-      statusSpan.textContent = status;
+      const status = normalizeStatus(d.status, statusSpan ? statusSpan.textContent : 'running');
+      setStatus(statusSpan, status);
       
       if (isArbitrage) {
         const arbCount = asNumber(d.arb_cnt);
@@ -196,9 +239,6 @@ function subscribeToMonitor(id, card, isArbitrage) {
           arbResultDiv.style.display = 'block';
         }
 
-        if (status === 'finished') {
-          evt.close();
-        }
       } else {
         // 单个监控数据显示
         obDiv.innerHTML = `
@@ -206,14 +246,24 @@ function subscribeToMonitor(id, card, isArbitrage) {
           <div>Bid: ${d.bid ? d.bid.value : '-'} @ ${d.bid ? d.bid.quantity : '-'} </div>
         `;
       }
+
+      if (isTerminalStatus(status)) {
+        evt.close();
+      }
     } catch (err) {
       obDiv.textContent = '解析数据出错: ' + err.message;
     }
   };
 
-  evt.onerror = () => {
-    if (statusSpan.textContent !== 'finished') {
-      statusSpan.textContent = 'disconnected';
+  evt.onerror = async () => {
+    const latestStatus = await fetchLatestMonitorStatus(id);
+    if (latestStatus) {
+      setStatus(statusSpan, latestStatus);
+    }
+
+    const currentStatus = normalizeStatus(statusSpan ? statusSpan.textContent : 'running', 'running');
+    if (!isTerminalStatus(currentStatus)) {
+      setStatus(statusSpan, 'disconnected');
     }
     evt.close();
   };

@@ -14,6 +14,12 @@ button{padding:8px 14px;border:1px solid #24292f;border-radius:6px;background:#2
 button:disabled{opacity:.65;cursor:wait}
 .arbitrage-pair{border:1px solid #e1e4e8;padding:10px;margin:10px 0;border-radius:4px;background:#fafbfc}
 .card{border:1px solid #ddd;padding:8px;margin:8px 0;border-radius:6px;background:#fff}
+.status{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600;line-height:1.4;background:#f3f4f6;color:#374151}
+.status[data-status="running"]{background:#dcfce7;color:#166534}
+.status[data-status="finished"]{background:#dbeafe;color:#1d4ed8}
+.status[data-status="stopped"]{background:#fef3c7;color:#92400e}
+.status[data-status="aborted"]{background:#fee2e2;color:#b91c1c}
+.status[data-status="disconnected"]{background:#e5e7eb;color:#374151}
 .card .actions{margin-top:8px}
 .card .ob{font-family:monospace;margin-top:8px;font-size:12px}
 .card.arbitrage-card{border-color:#28a745;background:#f8fff9}
