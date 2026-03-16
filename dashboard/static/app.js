@@ -21,12 +21,16 @@ function addMonitorCard(m) {
   const initialMarket2Remaining = asNumber(m.market2_remaining_budget);
   const initialMarket1Consumed = asNumber(m.market1_consumed_budget);
   const initialMarket2Consumed = asNumber(m.market2_consumed_budget);
+  const initialMinOrderQuantity = asNumber(m.min_order_quantity);
+  const initialMinOrderAmount = asNumber(m.min_order_amount);
   const market1BudgetText = initialMarket1Budget === null ? '无限制' : initialMarket1Budget.toFixed(6);
   const market2BudgetText = initialMarket2Budget === null ? '无限制' : initialMarket2Budget.toFixed(6);
   const market1RemainingText = initialMarket1Remaining === null ? market1BudgetText : initialMarket1Remaining.toFixed(6);
   const market2RemainingText = initialMarket2Remaining === null ? market2BudgetText : initialMarket2Remaining.toFixed(6);
   const market1ConsumedText = initialMarket1Consumed === null ? '0.000000' : initialMarket1Consumed.toFixed(6);
   const market2ConsumedText = initialMarket2Consumed === null ? '0.000000' : initialMarket2Consumed.toFixed(6);
+  const minOrderQuantityText = initialMinOrderQuantity === null ? '0.000000' : initialMinOrderQuantity.toFixed(6);
+  const minOrderAmountText = initialMinOrderAmount === null ? '0.000000' : initialMinOrderAmount.toFixed(6);
   
   let contentHtml;
   
@@ -43,6 +47,8 @@ function addMonitorCard(m) {
         <div><strong>最小价差:</strong> ${m.min_spread}</div>
         <div><strong>最大套利比例:</strong> ${(m.max_arb_ratio * 100).toFixed(1)}%</div>
         <div><strong>最大套利数量:</strong> ${isFinite(m.max_arb_quantity) ? m.max_arb_quantity : '无限制'}</div>
+        <div><strong>单次最少数量:</strong> ${minOrderQuantityText}</div>
+        <div><strong>单次最少金额:</strong> ${minOrderAmountText}</div>
         <div><strong>市场1预算:</strong> <span class="market1-budget">${market1BudgetText}</span></div>
         <div><strong>市场2预算:</strong> <span class="market2-budget">${market2BudgetText}</span></div>
       </div>
@@ -247,11 +253,19 @@ arbitrageForm.onsubmit = async (ev) => {
   const max_arb_ratio = Number(document.getElementById('arb-max-ratio').value) || 1.0;
   const max_arb_quantity_input = Number(document.getElementById('arb-max-quantity').value);
   const max_arb_quantity = max_arb_quantity_input > 0 ? max_arb_quantity_input : null;
+  const min_order_quantity_input = Number(document.getElementById('arb-min-order-quantity').value);
+  const min_order_amount_input = Number(document.getElementById('arb-min-order-amount').value);
+  const min_order_quantity = min_order_quantity_input > 0 ? min_order_quantity_input : 0;
+  const min_order_amount = min_order_amount_input > 0 ? min_order_amount_input : 0;
   const market1_budget = Number(document.getElementById('arb-market1-budget').value);
   const market2_budget = Number(document.getElementById('arb-market2-budget').value);
 
   if (!(market1_budget > 0) || !(market2_budget > 0)) {
     alert('市场1和市场2的预分配金额必须大于0');
+    return;
+  }
+  if (min_order_quantity_input < 0 || min_order_amount_input < 0) {
+    alert('单次下单最少数量和单次下单最少金额必须大于等于0');
     return;
   }
 
@@ -263,6 +277,8 @@ arbitrageForm.onsubmit = async (ev) => {
       type2, market2,
       max_arb_ratio,
       max_arb_quantity,
+      min_order_quantity,
+      min_order_amount,
       market1_budget,
       market2_budget,
       freq,

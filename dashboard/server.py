@@ -133,11 +133,15 @@ def create_app(manager: TaskManager | None = None) -> Flask:
         try:
             market1_budget = float(data.get('market1_budget'))
             market2_budget = float(data.get('market2_budget'))
+            min_order_quantity = float(data.get('min_order_quantity', 0.0) or 0.0)
+            min_order_amount = float(data.get('min_order_amount', 0.0) or 0.0)
         except (TypeError, ValueError):
-            return jsonify({'error': 'market1_budget and market2_budget must be valid numbers'}), 400
+            return jsonify({'error': 'budget and minimum order fields must be valid numbers'}), 400
 
         if market1_budget <= 0 or market2_budget <= 0:
             return jsonify({'error': 'market1_budget and market2_budget must be greater than 0'}), 400
+        if min_order_quantity < 0 or min_order_amount < 0:
+            return jsonify({'error': 'min_order_quantity and min_order_amount must be greater than or equal to 0'}), 400
         
         cfg = {
             'type1': data.get('type1'),
@@ -146,6 +150,8 @@ def create_app(manager: TaskManager | None = None) -> Flask:
             'market2': data.get('market2'),
             'max_arb_ratio': float(data.get('max_arb_ratio', 1.0)),
             'max_arb_quantity': float(data.get('max_arb_quantity', float('inf'))) if data.get('max_arb_quantity') else float('inf'),
+            'min_order_quantity': min_order_quantity,
+            'min_order_amount': min_order_amount,
             'market1_budget': market1_budget,
             'market2_budget': market2_budget,
             'freq': float(data.get('freq', 5)),

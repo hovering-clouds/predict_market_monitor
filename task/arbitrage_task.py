@@ -74,6 +74,8 @@ class ArbitrageTask:
         self.thread: Optional[threading.Thread] = None
         self.max_arb_ratio = float(cfg.get('max_arb_ratio', 1.0))  # 默认为100%
         self.max_arb_quantity = float(cfg.get('max_arb_quantity', float('inf')))  # 默认为无限制
+        self.min_order_quantity = self._parse_non_negative_float(cfg.get('min_order_quantity', 0.0))
+        self.min_order_amount = self._parse_non_negative_float(cfg.get('min_order_amount', 0.0))
         self.market1_budget = self._parse_budget(cfg.get('market1_budget'))
         self.market2_budget = self._parse_budget(cfg.get('market2_budget'))
         self.market1_remaining_budget = self.market1_budget
@@ -93,6 +95,14 @@ class ArbitrageTask:
         except (TypeError, ValueError):
             return float('inf')
         return parsed if parsed > 0 else float('inf')
+
+    def _parse_non_negative_float(self, value: Any) -> float:
+        """Parse non-negative numeric config values; invalid values fallback to 0."""
+        try:
+            parsed = float(value)
+        except (TypeError, ValueError):
+            return 0.0
+        return parsed if parsed >= 0 else 0.0
 
     def _serialize_number(self, value: float, digits: int = 6):
         """Serialize numbers for JSON payloads; unlimited values are represented as null."""
@@ -122,7 +132,7 @@ class ArbitrageTask:
             with open(_RESULT_PATH, 'a') as f:
                 f.write(f"{self.id},{self.cfg.get('type1')}-{self.cfg.get('market1')},{self.cfg.get('type2')}-{self.cfg.get('market2')},"
                         f"{self.arb_cnt},"
-                        f"{self.max_arb_ratio},{self.max_arb_quantity},"
+                        f"{self.max_arb_ratio},{self.max_arb_quantity},{self.min_order_quantity},{self.min_order_amount},"
                         f"{self._serialize_for_csv(self.market1_budget)},{self._serialize_for_csv(self.market1_remaining_budget)},"
                         f"{self._serialize_for_csv(self.market2_budget)},{self._serialize_for_csv(self.market2_remaining_budget)},"
                         f"{round(self.cumulative_profit, 6)},{round(self.cumulative_risk_exposure, 6)},"
@@ -229,6 +239,38 @@ class ArbitrageTask:
         cap2 = float('inf') if not math.isfinite(self.market2_remaining_budget) else self.market2_remaining_budget / price2
         return max(min(cap1, cap2), 0.0)
 
+    def _minimum_required_quantity(self, leg1_price: float, leg2_price: float) -> float:
+        """Compute minimum executable quantity from API minimum quantity and amount constraints."""
+        min_qty = self.min_order_quantity
+        if self.min_order_amount <= 0:
+            return min_qty
+
+        leg1_price = float(leg1_price or 0.0)
+        leg2_price = float(leg2_price or 0.0)
+        if leg1_price <= 0 or leg2_price <= 0:
+            return float('inf')
+
+        amount_based_min_qty = max(self.min_order_amount / leg1_price, self.min_order_amount / leg2_price)
+        return max(min_qty, amount_based_min_qty)
+
+    def _limited_order_quantity(self, opportunity_quantity: float, leg1_price: float, leg2_price: float) -> float:
+        """Apply all quantity controls and return executable order size, 0 when constraints cannot be met."""
+        opportunity_quantity = max(float(opportunity_quantity or 0.0), 0.0)
+        max_allowed_quantity = min(
+            opportunity_quantity * self.max_arb_ratio,
+            self.max_arb_quantity,
+            self._budget_limited_quantity(leg1_price, leg2_price),
+        )
+
+        if max_allowed_quantity <= 0:
+            return 0.0
+
+        min_required_quantity = self._minimum_required_quantity(leg1_price, leg2_price)
+        if max_allowed_quantity + 1e-9 < min_required_quantity:
+            return 0.0
+
+        return max_allowed_quantity
+
     def _build_result_payload(
         self,
         market1_bid,
@@ -249,6 +291,8 @@ class ArbitrageTask:
             'status': self.status,
             'max_arb_ratio': self.max_arb_ratio,
             'max_arb_quantity': self._serialize_number(self.max_arb_quantity),
+            'min_order_quantity': self._serialize_number(self.min_order_quantity),
+            'min_order_amount': self._serialize_number(self.min_order_amount),
             'market1_budget': self._serialize_number(self.market1_budget),
             'market2_budget': self._serialize_number(self.market2_budget),
             'market1_remaining_budget': self._serialize_number(self.market1_remaining_budget),
@@ -303,6 +347,7 @@ class ArbitrageTask:
                 result = None
                 arb_spread = None
                 quantity = None
+                quantity_display = '-'
 
                 # Calculate arbitrage opportunity
                 if ob1 and ob2:
@@ -314,13 +359,15 @@ class ArbitrageTask:
                         sell_price = float(sell_price or 0.0)
                         quantity = max(float(quantity or 0.0), 0.0)
 
-                        budget_quantity_cap = self._budget_limited_quantity(1 - sell_price, buy_price)
-                        # 应用最大套利比例和数量限制
-                        limited_quantity = min(quantity * self.max_arb_ratio, self.max_arb_quantity, budget_quantity_cap)
+                        leg1_price = 1 - sell_price
+                        leg2_price = buy_price
+                        # 应用最大/最小数量、最小金额和预算限制
+                        limited_quantity = self._limited_order_quantity(quantity, leg1_price, leg2_price)
+                        quantity_display = round(limited_quantity, 6) if limited_quantity > 0 else '-'
                         if limited_quantity > 0:
                             order_result1, order_result2 = self._execute_parallel_order_legs(
-                                (monitor1, 1 - sell_price, limited_quantity, 'BUY', False),
-                                (monitor2, buy_price, limited_quantity, 'BUY', True),
+                                (monitor1, leg1_price, limited_quantity, 'BUY', False),
+                                (monitor2, leg2_price, limited_quantity, 'BUY', True),
                             )
                             qty1, vlm1, fee1 = order_result1
                             qty2, vlm2, fee2 = order_result2
@@ -341,13 +388,15 @@ class ArbitrageTask:
                         sell_price = float(sell_price or 0.0)
                         quantity = max(float(quantity or 0.0), 0.0)
 
-                        budget_quantity_cap = self._budget_limited_quantity(buy_price, 1 - sell_price)
-                        # 应用最大套利比例和数量限制
-                        limited_quantity = min(quantity * self.max_arb_ratio, self.max_arb_quantity, budget_quantity_cap)
+                        leg1_price = buy_price
+                        leg2_price = 1 - sell_price
+                        # 应用最大/最小数量、最小金额和预算限制
+                        limited_quantity = self._limited_order_quantity(quantity, leg1_price, leg2_price)
+                        quantity_display = round(limited_quantity, 6) if limited_quantity > 0 else quantity_display
                         if limited_quantity > 0:
                             order_result1, order_result2 = self._execute_parallel_order_legs(
-                                (monitor1, buy_price, limited_quantity, 'BUY', True),
-                                (monitor2, 1 - sell_price, limited_quantity, 'BUY', False),
+                                (monitor1, leg1_price, limited_quantity, 'BUY', True),
+                                (monitor2, leg2_price, limited_quantity, 'BUY', False),
                             )
                             qty1, vlm1, fee1 = order_result1
                             qty2, vlm2, fee2 = order_result2
@@ -357,8 +406,7 @@ class ArbitrageTask:
                             if self._is_budget_exhausted():
                                 self.status = 'finished'
 
-                    quantity_display = '-'
-                    if quantity is not None:
+                    if quantity_display == '-' and quantity is not None:
                         try:
                             quantity_display = round(float(quantity), 6)
                         except (TypeError, ValueError):
