@@ -80,19 +80,19 @@
             <label>单次最大套利比例 (0-1)
               <input id="arb-max-ratio" type="number" step="0.01" min="0" max="1" value="1" />
             </label>
-            <label>单次最大套利数量 (0为无限制)
+            <label>单次最大套利数量 (建议>=10, 否则容易与最少数量/金额限制冲突)
               <input id="arb-max-quantity" type="number" step="1" min="0" value="0" />
             </label>
-            <label>单次下单最少数量 (0为不限制)
+            <label>单次下单最少数量 (请保持默认值5.0)
               <input id="arb-min-order-quantity" type="number" step="0.1" min="0" value="5.0" />
             </label>
-            <label>单次下单最少金额 (0为不限制)
+            <label>单次下单最少金额 (请保持默认值1.0)
               <input id="arb-min-order-amount" type="number" step="0.1" min="0" value="1.0" />
             </label>
-            <label>市场1预分配金额 (>0)
+            <label>市场1分配金额预算 (>0)
               <input id="arb-market1-budget" type="number" step="0.01" min="0.01" value="100" />
             </label>
-            <label>市场2预分配金额 (>0)
+            <label>市场2分配金额预算 (>0)
               <input id="arb-market2-budget" type="number" step="0.01" min="0.01" value="100" />
             </label>
           </div>
