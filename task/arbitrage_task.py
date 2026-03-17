@@ -221,8 +221,6 @@ class ArbitrageTask:
                 self.cumulative_risk_exposure += (qty1 - qty2) * vlm1/qty1
             elif qty2 > qty1:
                 self.cumulative_risk_exposure += (qty2 - qty1) * vlm2/qty2
-        
-        logger.info(f"successfully executed arbitrage legs with qty1={qty1}, qty2={qty2}.")
 
     def _is_budget_exhausted(self) -> bool:
         epsilon = 1e-9
@@ -382,6 +380,10 @@ class ArbitrageTask:
                             )
                             qty1, vlm1, fee1 = order_result1
                             qty2, vlm2, fee2 = order_result2
+                            logger.info(
+                                f"Find arbitrage opportunity with spread {round(arb_spread, 2)} and quantity {limited_quantity}. "
+                                f"Executed reverse arbitrage legs between market1 (no {qty1}@{leg1_price}) and market2 (yes {qty2}@{leg2_price})."
+                                )
                             self._update_trade_stats(qty1, vlm1, fee1, qty2, vlm2, fee2)
                             if qty1 > 0 or qty2 > 0:
                                 self.arb_cnt += 1
@@ -412,6 +414,10 @@ class ArbitrageTask:
                             )
                             qty1, vlm1, fee1 = order_result1
                             qty2, vlm2, fee2 = order_result2
+                            logger.info(
+                                f"Find arbitrage opportunity with spread {round(arb_spread, 2)} and quantity {limited_quantity}. "
+                                f"Executed reverse arbitrage legs between market1 (yes {qty1}@{leg1_price}) and market2 (no {qty2}@{leg2_price})."
+                                )
                             self._update_trade_stats(qty1, vlm1, fee1, qty2, vlm2, fee2)
                             if qty1 > 0 or qty2 > 0:
                                 self.arb_cnt += 1
