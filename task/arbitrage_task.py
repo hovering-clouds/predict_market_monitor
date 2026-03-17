@@ -7,6 +7,7 @@ import math
 
 from core import logger
 from monitor import build_monitor, BaseMonitor
+from core.utils import OrderBook
 
 _RESULT_PATH = "./logs/results.csv"
 
@@ -173,6 +174,23 @@ class ArbitrageTask:
 
         return results[0], results[1]
 
+    def _execute_parallel_get_orderbook(self, monitor1: BaseMonitor, monitor2: BaseMonitor) -> Tuple[Optional[OrderBook], Optional[OrderBook]]:
+        """Fetch orderbooks from both monitors in parallel to minimize latency."""
+        orderbooks: list[Optional[OrderBook]] = [None, None]
+
+        def _fetch_ob(index: int, monitor: BaseMonitor):
+            ob = monitor.get_yes_orderbook()
+            orderbooks[index] = ob
+
+        thread1 = threading.Thread(target=_fetch_ob, args=(0, monitor1), daemon=True)
+        thread2 = threading.Thread(target=_fetch_ob, args=(1, monitor2), daemon=True)
+        thread1.start()
+        thread2.start()
+        thread1.join()
+        thread2.join()
+
+        return orderbooks[0], orderbooks[1]
+
     def _update_trade_stats(self, qty1: float, vlm1: float, fee1: float, qty2: float, vlm2: float, fee2: float):
         """Accumulate fee/profit/exposure based on realized two-leg execution."""
         qty1 = float(qty1 or 0.0)
@@ -323,8 +341,7 @@ class ArbitrageTask:
                     break
 
                 # Get orderbooks from both markets
-                ob1 = monitor1.get_yes_orderbook()
-                ob2 = monitor2.get_yes_orderbook()
+                ob1, ob2 = self._execute_parallel_get_orderbook(monitor1, monitor2)
                 
                 if ob1 is None or ob2 is None:
                     logger.warning(f"Failed to fetch orderbooks for task {self.id}, aborting.")
