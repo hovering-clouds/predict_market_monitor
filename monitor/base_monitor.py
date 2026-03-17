@@ -16,11 +16,23 @@ class BaseMonitor(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def place_limit_order_fak(self, price: float, size: float, side: str, yes_or_no: bool) -> Tuple[float, float, float] | None:
+    def place_limit_order_fak(self, price: float, size: float, side: str, yes_or_no: bool) -> str | None:
         raise NotImplementedError
     
     @abstractmethod
+    def get_order(self, order_id: str, retry_count: int = 3):
+        raise NotImplementedError
+    
+    @abstractmethod
+    def parse_order_result(self, order_data: Any) -> Tuple[float, float, float] | None:
+        raise NotImplementedError
+
+    @abstractmethod
     def cancel_all_open_orders(self):
+        raise NotImplementedError
+    
+    @abstractmethod
+    def cancel_single_order(self, order_id: str):
         raise NotImplementedError
 
 

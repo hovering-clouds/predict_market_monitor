@@ -5,6 +5,7 @@ from core import logger, config
 from core.utils import PriceInfo, OrderBook
 from .polymarket_market_finder import PolyMarketFinder, _build_poly_market_finder
 from monitor.base_monitor import BaseMonitor
+import time
 
 class PolymarketMonitor(BaseMonitor):
 
@@ -71,7 +72,7 @@ class PolymarketMonitor(BaseMonitor):
         
         return OrderBook(bids=bids, asks=asks)
 
-    def place_limit_order_fak(self, price: float, size: float, side: str, yes_or_no: bool) -> Tuple[float, float, float] | None:
+    def place_limit_order_fak(self, price: float, size: float, side: str, yes_or_no: bool) -> str | None:
         """
         参数：
          - price: 下单价格，0-1浮点数
@@ -80,7 +81,10 @@ class PolymarketMonitor(BaseMonitor):
          - yes_or_no: True表示yes，False表示no
 
         返回值: 
-         - (成交数量, 成交金额, 交易费) 或 None表示下单失败
+         - order_id 或 None表示下单失败
+        
+        注意:
+         - 由于polymarket可能的订单延迟机制，无法立即根据response判断订单是否完全成交，因此取消未成交部分的逻辑放在parse_order_result里
         """
         if not self.token_ids:
             return None
@@ -103,27 +107,45 @@ class PolymarketMonitor(BaseMonitor):
             return None
 
         order_id = response.get("orderID")
-        taking_amount = response.get("takingAmount")
-        if taking_amount == '': # API returns empty string when no fill
-            taking_amount = '0.0'
-        if taking_amount and float(taking_amount) < size:
-            logger.info(f"Order {order_id} not fully filled, canceling remaining...")
-            try:
-                response2 = self.client.cancel(order_id)
-                if response2.get('not_canceled'):
-                    for k,v in response2['not_canceled'].items():
-                        logger.error(f"Order {k} not canceled, reason: {v}")
-                    self.cancel_all_open_orders()
-            except Exception as e:
-                logger.error(f"Error canceling order {order_id}: {e}")
-                self.cancel_all_open_orders()
+        return order_id
+
+    def get_order(self, order_id: str, retry_count: int = 3):
+        try:
+            order = None
+            for i in range(retry_count): # retry up to retry_count times to get order details
+                order = self.client.get_order(order_id)
+                if not order:
+                    logger.info(f"Order {order_id} not found, retrying...")
+                    time.sleep(1.0) # wait a bit before retrying
+                    continue
+                else:
+                    break
+            
+            if not order:
+                logger.error(f"Order {order_id} not found after retried for {retry_count} times.")
+                return None
+            return order
+        
+        except Exception as e:
+            logger.error(f"Error probing order {order_id}: {e}")
+            return None
+
+    def parse_order_result(self, order) -> Tuple[float, float, float] | None:
+        """
+        返回值: 
+         - (成交数量, 成交金额, 交易费) 或 None表示解析失败
+        """
+        if not order:
+            return None
         
         try:
-            order = self.client.get_order(order_id)
-            if not order:
-                logger.error(f"Order {order_id} not found after placement.")
-                return None
+            original_size = float(order.get("original_size", 0))
             matched_size = float(order.get("size_matched", 0))
+            if original_size < matched_size:
+                logger.info(f"Matched size {matched_size} is greater than original size {original_size} for order {order.get('order_id')}, canceling remaining {matched_size - original_size}...")
+                if order.get("id"):
+                    self.cancel_single_order(order.get("id"))
+
             matched_amount = 0.0
             total_fee = 0.0
             for trade in order.get("associate_trades", []):
@@ -139,12 +161,10 @@ class PolymarketMonitor(BaseMonitor):
                 matched_amount += amount
                 total_fee += fee
             return matched_size, matched_amount, total_fee
-
         except Exception as e:
-            logger.error(f"Error fetching order {order_id} or get trade details: {e}")
-            self.cancel_all_open_orders()
+            logger.error(f"Error parsing order results: {e}")
             return None
-        
+
     def place_market_order_fak(self, price: float, amount: float, side: str, yes_or_no: bool) -> dict | None:
         """ 
         未经测试，暂时勿用，主要可能的问题在于price和amount之间需要保持，计算出的size小数点精度在一定范围内
@@ -187,4 +207,16 @@ class PolymarketMonitor(BaseMonitor):
                 logger.info("All open orders canceled successfully.")
         except Exception as e:
             logger.error(f"Error canceling all open orders: {e}")
+            return
+
+    def cancel_single_order(self, order_id: str) -> None:
+        try:
+            response = self.client.cancel(order_id)
+            if response.get('not_canceled'):
+                for k,v in response['not_canceled'].items():
+                    logger.error(f"Order {k} not canceled, reason: {v}")
+            else:
+                logger.info(f"Order {order_id} canceled successfully.")
+        except Exception as e:
+            logger.error(f"Error canceling order {order_id}: {e}")
             return

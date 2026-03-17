@@ -1,4 +1,4 @@
-from kalshi_python_sync import Configuration, KalshiClient, GetMarketOrderbookResponse
+from kalshi_python_sync import Configuration, KalshiClient, GetMarketOrderbookResponse, Order
 from typing import Tuple, List, Any, Dict, Optional
 from core import logger, config
 from core.utils import PriceInfo, OrderBook
@@ -91,7 +91,7 @@ class KalshiMonitor(BaseMonitor):
         
         return OrderBook(bids=bids, asks=asks)
     
-    def place_limit_order_fak(self, price: float, size: float, side: str, yes_or_no: bool) -> Tuple[float, float, float] | None:
+    def place_limit_order_fak(self, price: float, size: float, side: str, yes_or_no: bool) -> Tuple[str, str] | None:
         """
         参数：
          - price: 下单价格，0-1浮点数
@@ -100,7 +100,7 @@ class KalshiMonitor(BaseMonitor):
          - yes_or_no: True表示yes，False表示no
 
         返回值: 
-         - (成交数量, 成交金额, 交易费) 或 None表示下单失败
+         - order_id 或 None表示下单失败
         """
         if not self.market:
             return None
@@ -124,26 +124,34 @@ class KalshiMonitor(BaseMonitor):
         remaining_count = float(response.order.remaining_count_fp)
         if remaining_count > 0:
             logger.info(f"Order {order_id} not fully filled, canceling remaining {remaining_count}...")
-            try:
-                self.client._orders_api.cancel_order(order_id)
-            except Exception as e:
-                logger.error(f"Error canceling order {order_id}: {e}")
-                self.cancel_all_open_orders()
-
+            self.cancel_single_order(order_id)
+            return order_id, "cancelled"
+        
+        return order_id, "filled"
+        
+    def get_order(self, order_id: str, retry_count: int = 3):
         try:
-            response3 = self.client._orders_api.get_order(order_id)
-            fill_count = float(response3.order.fill_count_fp)
-            taker_amount = float(response3.order.taker_fill_cost_dollars)
-            maker_amount = float(response3.order.maker_fill_cost_dollars)
-            taker_fee = float(response3.order.taker_fees_dollars)
-            maker_fee = float(response3.order.maker_fees_dollars)
-            return fill_count, taker_amount + maker_amount, taker_fee + maker_fee
-
+            resp = self.client._orders_api.get_order(order_id)
+            return resp.order
         except Exception as e:
-            logger.error(f"Error fetching order {order_id} details: {e}")
-            self.cancel_all_open_orders()
+            logger.error(f"Error fetching order {order_id}: {e}")
+            return None
+
+    def parse_order_result(self, order) -> Tuple[float, float, float] | None:
+        if order is None:
             return None
         
+        try:
+            fill_count = float(order.fill_count_fp)
+            taker_amount = float(order.taker_fill_cost_dollars)
+            maker_amount = float(order.maker_fill_cost_dollars)
+            taker_fee = float(order.taker_fees_dollars)
+            maker_fee = float(order.maker_fees_dollars)
+            return fill_count, taker_amount + maker_amount, taker_fee + maker_fee
+        except Exception as e:
+            logger.error(f"Error parsing order results: {e}")
+            return None
+
     def cancel_all_open_orders(self):
         """取消所有未完成订单"""
         try:
@@ -157,3 +165,10 @@ class KalshiMonitor(BaseMonitor):
         except Exception as e:
             logger.error(f"Error fetching open orders: {e}")
 
+    def cancel_single_order(self, order_id: str):
+        """取消单个订单"""
+        try:
+            self.client._orders_api.cancel_order(order_id)
+            logger.info(f"Canceled order {order_id} successfully.")
+        except Exception as e:
+            logger.error(f"Error canceling order {order_id}: {e}")

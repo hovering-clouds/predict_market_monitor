@@ -154,7 +154,11 @@ class ArbitrageTask:
 
         def _runner(index: int, leg: Tuple[BaseMonitor, float, float, str, bool]):
             monitor, price, size, side, yes_or_no = leg
-            leg_result = monitor.place_limit_order_fak(price=price, size=size, side=side, yes_or_no=yes_or_no)
+            order_id = monitor.place_limit_order_fak(price=price, size=size, side=side, yes_or_no=yes_or_no)
+            if order_id is None:
+                return
+            order = monitor.get_order(order_id)
+            leg_result = monitor.parse_order_result(order)
             results[index] = leg_result
 
         thread1 = threading.Thread(target=_runner, args=(0, leg1), daemon=True)
@@ -199,6 +203,8 @@ class ArbitrageTask:
                 self.cumulative_risk_exposure += (qty1 - qty2) * vlm1/qty1
             elif qty2 > qty1:
                 self.cumulative_risk_exposure += (qty2 - qty1) * vlm2/qty2
+        
+        logger.info(f"successfully executed arbitrage legs with qty1={qty1}, qty2={qty2}.")
 
     def _is_budget_exhausted(self) -> bool:
         epsilon = 1e-9
@@ -364,6 +370,7 @@ class ArbitrageTask:
                                 self.arb_cnt += 1
                             if self._is_budget_exhausted():
                                 self.status = 'finished'
+                                break
                     
                     # 检查是否能从market1买入，在market2卖出获利
                     if market2_bid and market1_ask and not self._is_budget_exhausted():
@@ -393,6 +400,7 @@ class ArbitrageTask:
                                 self.arb_cnt += 1
                             if self._is_budget_exhausted():
                                 self.status = 'finished'
+                                break
 
                     if quantity_display == '-' and quantity is not None:
                         try:
@@ -429,5 +437,6 @@ class ArbitrageTask:
                 self.status = 'aborted'
                 self._save_results()
                 logger.error(f"Error in arbitrage task: {e}")
+                break
 
             time.sleep(freq)
