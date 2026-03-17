@@ -141,8 +141,8 @@ class PolymarketMonitor(BaseMonitor):
         try:
             original_size = float(order.get("original_size", 0))
             matched_size = float(order.get("size_matched", 0))
-            if original_size < matched_size:
-                logger.info(f"Matched size {matched_size} is greater than original size {original_size} for order {order.get('order_id')}, canceling remaining {matched_size - original_size}...")
+            if original_size > matched_size:
+                logger.info(f"Matched size {matched_size} is less than original size {original_size} for order {order.get('order_id')}, canceling remaining {original_size - matched_size}...")
                 if order.get("id"):
                     self.cancel_single_order(order.get("id"))
 
