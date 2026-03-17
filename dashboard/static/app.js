@@ -81,6 +81,8 @@ function addMonitorCard(m) {
   const initialMarket2Consumed = asNumber(m.market2_consumed_budget);
   const initialMinOrderQuantity = asNumber(m.min_order_quantity);
   const initialMinOrderAmount = asNumber(m.min_order_amount);
+  const initialPriceDeviationTolerance = asNumber(m.price_deviation_tolerance);
+  const initialMaxRiskExposure = asNumber(m.max_risk_exposure);
   const market1BudgetText = initialMarket1Budget === null ? '无限制' : initialMarket1Budget.toFixed(6);
   const market2BudgetText = initialMarket2Budget === null ? '无限制' : initialMarket2Budget.toFixed(6);
   const market1RemainingText = initialMarket1Remaining === null ? market1BudgetText : initialMarket1Remaining.toFixed(6);
@@ -89,6 +91,8 @@ function addMonitorCard(m) {
   const market2ConsumedText = initialMarket2Consumed === null ? '0.000000' : initialMarket2Consumed.toFixed(6);
   const minOrderQuantityText = initialMinOrderQuantity === null ? '0.000000' : initialMinOrderQuantity.toFixed(6);
   const minOrderAmountText = initialMinOrderAmount === null ? '0.000000' : initialMinOrderAmount.toFixed(6);
+  const priceDeviationToleranceText = initialPriceDeviationTolerance === null ? '0.000000' : initialPriceDeviationTolerance.toFixed(6);
+  const maxRiskExposureText = initialMaxRiskExposure === null ? '无限制' : initialMaxRiskExposure.toFixed(6);
   
   let contentHtml;
   
@@ -107,6 +111,8 @@ function addMonitorCard(m) {
         <div><strong>最大套利数量:</strong> ${isFinite(m.max_arb_quantity) ? m.max_arb_quantity : '无限制'}</div>
         <div><strong>单次最少数量:</strong> ${minOrderQuantityText}</div>
         <div><strong>单次最少金额:</strong> ${minOrderAmountText}</div>
+        <div><strong>容许价格偏差:</strong> ${priceDeviationToleranceText}</div>
+        <div><strong>最大风险敞口:</strong> ${maxRiskExposureText}</div>
         <div><strong>市场1预算:</strong> <span class="market1-budget">${market1BudgetText}</span></div>
         <div><strong>市场2预算:</strong> <span class="market2-budget">${market2BudgetText}</span></div>
       </div>
@@ -195,6 +201,7 @@ function subscribeToMonitor(id, card, isArbitrage) {
         const market2Remaining = asNumber(d.market2_remaining_budget);
         const market1Consumed = asNumber(d.market1_consumed_budget);
         const market2Consumed = asNumber(d.market2_consumed_budget);
+        const maxRiskExposure = asNumber(d.max_risk_exposure);
         if (arbCountSpan && arbCount !== null) {
           arbCountSpan.textContent = String(Math.max(0, Math.floor(arbCount)));
         }
@@ -247,6 +254,7 @@ function subscribeToMonitor(id, card, isArbitrage) {
           const market2RemainingText = market2Remaining === null ? '-' : market2Remaining.toFixed(6);
           const market1ConsumedText = market1Consumed === null ? '-' : market1Consumed.toFixed(6);
           const market2ConsumedText = market2Consumed === null ? '-' : market2Consumed.toFixed(6);
+          const maxRiskExposureText = maxRiskExposure === null ? '无限制' : maxRiskExposure.toFixed(6);
 
           arbResultDiv.innerHTML = `
             <div>${spreadDisplay} | <span>可套利数量: ${quantityText}</span></div>
@@ -340,6 +348,10 @@ arbitrageForm.onsubmit = async (ev) => {
   const min_order_amount_input = Number(document.getElementById('arb-min-order-amount').value);
   const min_order_quantity = min_order_quantity_input > 0 ? min_order_quantity_input : 0;
   const min_order_amount = min_order_amount_input > 0 ? min_order_amount_input : 0;
+  const price_deviation_tolerance_input = Number(document.getElementById('arb-price-deviation-tolerance').value);
+  const max_risk_exposure_input = Number(document.getElementById('arb-max-risk-exposure').value);
+  const price_deviation_tolerance = price_deviation_tolerance_input > 0 ? price_deviation_tolerance_input : 0;
+  const max_risk_exposure = max_risk_exposure_input > 0 ? max_risk_exposure_input : 0;
   const market1_budget = Number(document.getElementById('arb-market1-budget').value);
   const market2_budget = Number(document.getElementById('arb-market2-budget').value);
 
@@ -349,6 +361,14 @@ arbitrageForm.onsubmit = async (ev) => {
   }
   if (min_order_quantity_input < 0 || min_order_amount_input < 0) {
     alert('单次下单最少数量和单次下单最少金额必须大于等于0');
+    return;
+  }
+  if (price_deviation_tolerance_input < 0 || price_deviation_tolerance_input > 1) {
+    alert('容许价格偏差必须在0到1之间');
+    return;
+  }
+  if (max_risk_exposure_input < 0) {
+    alert('最大风险敞口必须大于等于0');
     return;
   }
 
@@ -363,6 +383,8 @@ arbitrageForm.onsubmit = async (ev) => {
         max_arb_quantity,
         min_order_quantity,
         min_order_amount,
+        price_deviation_tolerance,
+        max_risk_exposure,
         market1_budget,
         market2_budget,
         freq,

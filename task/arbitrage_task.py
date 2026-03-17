@@ -77,6 +77,8 @@ class ArbitrageTask:
         self.max_arb_quantity = float(cfg.get('max_arb_quantity', float('inf')))  # 默认为无限制
         self.min_order_quantity = self._parse_non_negative_float(cfg.get('min_order_quantity', 5.0))
         self.min_order_amount = self._parse_non_negative_float(cfg.get('min_order_amount', 1.0))
+        self.price_deviation_tolerance = self._parse_non_negative_float(cfg.get('price_deviation_tolerance', 0.0))
+        self.max_risk_exposure = self._parse_budget(cfg.get('max_risk_exposure'))
         self.market1_budget = self._parse_budget(cfg.get('market1_budget'))
         self.market2_budget = self._parse_budget(cfg.get('market2_budget'))
         self.market1_remaining_budget = self.market1_budget
@@ -134,6 +136,7 @@ class ArbitrageTask:
                 f.write(f"{self.id},{self.cfg.get('type1')}-{self.cfg.get('market1')},{self.cfg.get('type2')}-{self.cfg.get('market2')},"
                         f"{self.arb_cnt},"
                         f"{self.max_arb_ratio},{self.max_arb_quantity},{self.min_order_quantity},{self.min_order_amount},"
+                        f"{self.price_deviation_tolerance},{self._serialize_for_csv(self.max_risk_exposure)},"
                         f"{self._serialize_for_csv(self.market1_budget)},{self._serialize_for_csv(self.market1_remaining_budget)},"
                         f"{self._serialize_for_csv(self.market2_budget)},{self._serialize_for_csv(self.market2_remaining_budget)},"
                         f"{round(self.cumulative_profit, 6)},{round(self.cumulative_risk_exposure, 6)},"
@@ -226,6 +229,17 @@ class ArbitrageTask:
         epsilon = 1e-9
         return self.market1_remaining_budget <= epsilon or self.market2_remaining_budget <= epsilon
 
+    def _is_risk_exposure_limit_reached(self) -> bool:
+        if not math.isfinite(self.max_risk_exposure):
+            return False
+        epsilon = 1e-9
+        return self.cumulative_risk_exposure >= self.max_risk_exposure - epsilon
+
+    def _apply_price_deviation(self, price: float) -> float:
+        """Shift buy price up by tolerance to increase fill probability, clamped into [0, 1]."""
+        price = float(price or 0.0)
+        return min(max(price + self.price_deviation_tolerance, 0.0), 1.0)
+
     def _budget_limited_quantity(self, price1: float, price2: float) -> float:
         """Compute max executable quantity under current remaining budgets for two legs."""
         price1 = float(price1 or 0.0)
@@ -291,6 +305,8 @@ class ArbitrageTask:
             'max_arb_quantity': self._serialize_number(self.max_arb_quantity),
             'min_order_quantity': self._serialize_number(self.min_order_quantity),
             'min_order_amount': self._serialize_number(self.min_order_amount),
+            'price_deviation_tolerance': self._serialize_number(self.price_deviation_tolerance),
+            'max_risk_exposure': self._serialize_number(self.max_risk_exposure),
             'market1_budget': self._serialize_number(self.market1_budget),
             'market2_budget': self._serialize_number(self.market2_budget),
             'market1_remaining_budget': self._serialize_number(self.market1_remaining_budget),
@@ -310,7 +326,7 @@ class ArbitrageTask:
 
         while not self._stop.is_set():
             try:
-                if self._is_budget_exhausted():
+                if self._is_budget_exhausted() or self._is_risk_exposure_limit_reached():
                     self.status = 'finished'
                     final_result = self._build_result_payload(
                         market1_bid=None,
@@ -326,9 +342,10 @@ class ArbitrageTask:
                     except Exception:
                         pass
                     logger.info(
-                        f"Budget exhausted for task {self.id}, stopping. "
+                        f"Stop condition reached for task {self.id}. "
                         f"remaining market1={self._serialize_for_csv(self.market1_remaining_budget)}, "
-                        f"market2={self._serialize_for_csv(self.market2_remaining_budget)}"
+                        f"market2={self._serialize_for_csv(self.market2_remaining_budget)}, "
+                        f"risk={round(self.cumulative_risk_exposure, 6)}/{self._serialize_for_csv(self.max_risk_exposure)}"
                     )
                     break
                 
@@ -361,15 +378,15 @@ class ArbitrageTask:
                 # Calculate arbitrage opportunity
                 if ob1 and ob2:
                     # 检查是否能从market2买入，在market1卖出获利
-                    if market1_bid and market2_ask and not self._is_budget_exhausted():
+                    if market1_bid and market2_ask and not self._is_budget_exhausted() and not self._is_risk_exposure_limit_reached():
                         arb_spread = market1_bid.value - market2_ask.value
                         buy_price, sell_price, quantity = ob2.find_arbitrage_opportunity(ob1, min_spread)
                         buy_price = float(buy_price or 0.0)
                         sell_price = float(sell_price or 0.0)
                         quantity = max(float(quantity or 0.0), 0.0)
 
-                        leg1_price = 1 - sell_price
-                        leg2_price = buy_price
+                        leg1_price = self._apply_price_deviation(1 - sell_price)
+                        leg2_price = self._apply_price_deviation(buy_price)
                         # 应用最大/最小数量、最小金额和预算限制
                         limited_quantity = self._limited_order_quantity(quantity, leg1_price, leg2_price)
                         quantity_display = round(limited_quantity, 6) if limited_quantity > 0 else '-'
@@ -387,12 +404,12 @@ class ArbitrageTask:
                             self._update_trade_stats(qty1, vlm1, fee1, qty2, vlm2, fee2)
                             if qty1 > 0 or qty2 > 0:
                                 self.arb_cnt += 1
-                            if self._is_budget_exhausted():
+                            if self._is_budget_exhausted() or self._is_risk_exposure_limit_reached():
                                 self.status = 'finished'
                                 break
                     
                     # 检查是否能从market1买入，在market2卖出获利
-                    if market2_bid and market1_ask and not self._is_budget_exhausted():
+                    if market2_bid and market1_ask and not self._is_budget_exhausted() and not self._is_risk_exposure_limit_reached():
                         arb_spread = max(
                             market2_bid.value - market1_ask.value,
                             arb_spread if arb_spread is not None else -float('inf')
@@ -402,8 +419,8 @@ class ArbitrageTask:
                         sell_price = float(sell_price or 0.0)
                         quantity = max(float(quantity or 0.0), 0.0)
 
-                        leg1_price = buy_price
-                        leg2_price = 1 - sell_price
+                        leg1_price = self._apply_price_deviation(buy_price)
+                        leg2_price = self._apply_price_deviation(1 - sell_price)
                         # 应用最大/最小数量、最小金额和预算限制
                         limited_quantity = self._limited_order_quantity(quantity, leg1_price, leg2_price)
                         quantity_display = round(limited_quantity, 6) if limited_quantity > 0 else quantity_display
@@ -421,7 +438,7 @@ class ArbitrageTask:
                             self._update_trade_stats(qty1, vlm1, fee1, qty2, vlm2, fee2)
                             if qty1 > 0 or qty2 > 0:
                                 self.arb_cnt += 1
-                            if self._is_budget_exhausted():
+                            if self._is_budget_exhausted() or self._is_risk_exposure_limit_reached():
                                 self.status = 'finished'
                                 break
 

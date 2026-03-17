@@ -90,6 +90,12 @@
             <label>单次下单最少金额 (请保持默认值1.0)
               <input id="arb-min-order-amount" type="number" step="0.1" min="0" value="1.0" />
             </label>
+            <label>容许价格偏差 (0-1, 提高成交概率)
+              <input id="arb-price-deviation-tolerance" type="number" step="0.0001" min="0" max="1" value="0" />
+            </label>
+            <label>最大风险敞口 (0为无限制)
+              <input id="arb-max-risk-exposure" type="number" step="0.0001" min="0" value="0" />
+            </label>
             <label>市场1分配金额预算 (>0)
               <input id="arb-market1-budget" type="number" step="0.01" min="0.01" value="100" />
             </label>
