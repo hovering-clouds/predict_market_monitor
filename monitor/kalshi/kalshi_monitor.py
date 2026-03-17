@@ -91,7 +91,7 @@ class KalshiMonitor(BaseMonitor):
         
         return OrderBook(bids=bids, asks=asks)
     
-    def place_limit_order_fak(self, price: float, size: float, side: str, yes_or_no: bool) -> Tuple[str, str] | None:
+    def place_limit_order_fak(self, price: float, size: float, side: str, yes_or_no: bool) -> str | None:
         """
         参数：
          - price: 下单价格，0-1浮点数
@@ -125,9 +125,9 @@ class KalshiMonitor(BaseMonitor):
         if remaining_count > 0:
             logger.info(f"Order {order_id} not fully filled, canceling remaining {remaining_count}...")
             self.cancel_single_order(order_id)
-            return order_id, "cancelled"
+            return order_id
         
-        return order_id, "filled"
+        return order_id
         
     def get_order(self, order_id: str, retry_count: int = 3):
         try:
