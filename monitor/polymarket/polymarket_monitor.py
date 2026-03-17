@@ -118,7 +118,7 @@ class PolymarketMonitor(BaseMonitor):
                 order = self.client.get_order(order_id)
                 if not order:
                     logger.info(f"Order {order_id} not found, retrying...")
-                    time.sleep(1.0) # wait a bit before retrying
+                    time.sleep(2**i) # wait a bit before retrying
                     continue
                 else:
                     break
