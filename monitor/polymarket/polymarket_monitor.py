@@ -70,6 +70,8 @@ class PolymarketMonitor(BaseMonitor):
             logger.error(f"Error processing orderbook data for token {self.token_ids[0]}: {e}")
             return None
         
+        if not bids and not asks:
+            return None
         return OrderBook(bids=bids, asks=asks)
 
     def place_limit_order_fak(self, price: float, size: float, side: str, yes_or_no: bool) -> str | None:

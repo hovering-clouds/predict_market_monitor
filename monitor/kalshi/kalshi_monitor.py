@@ -89,6 +89,8 @@ class KalshiMonitor(BaseMonitor):
             logger.error(f"Error processing orderbook data for token {self.market.get_slug()}: {e}")
             return None
         
+        if not bids and not asks:
+            return None
         return OrderBook(bids=bids, asks=asks)
     
     def place_limit_order_fak(self, price: float, size: float, side: str, yes_or_no: bool) -> str | None:
